@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">LifeLink</string>
     <string name="title_activity_maps">MapsActivity</string>
+    <string name="nav_open">Open Navigation Drawer</string>
+    <string name="nav_close">Close Navigation Drawer</string>
 </resources>

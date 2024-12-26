@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_health_records"
+        android:icon="@drawable/ic_health_records"
+        android:title="Health Records" />
+
+    <item
+        android:id="@+id/nav_insurance"
+        android:icon="@drawable/ic_insurance"
+        android:title="Insurance" />
+
+    <item
+        android:id="@+id/nav_services"
+        android:icon="@drawable/ic_services"
+        android:title="Services">
+        <menu>
+            <item
+                android:id="@+id/nav_hospitals"
+                android:icon="@drawable/ic_hospital"
+                android:title="Hospitals" />
+            <item
+                android:id="@+id/nav_ambulance"
+                android:icon="@drawable/ic_ambulance"
+                android:title="Ambulance" />
+            <item
+                android:id="@+id/nav_blood_banks"
+                android:icon="@drawable/ic_blood_bank"
+                android:title="Blood Banks" />
+        </menu>
+    </item>
+</menu>

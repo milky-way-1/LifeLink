@@ -10,13 +10,18 @@ import android.text.TextPaint;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
+import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -29,6 +34,11 @@ public class dashboard extends AppCompatActivity {
 
     private TextInputEditText searchInput;
 
+    private DrawerLayout drawerLayout;
+    private NavigationView navigationView;
+
+    private ActionBarDrawerToggle drawerToggle;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +49,31 @@ public class dashboard extends AppCompatActivity {
         ambulanceAnimation = findViewById(R.id.ambulanceAnimation);
         callAmbulanceButton = findViewById(R.id.callAmbulanceButton);
         TextView emergencyText = findViewById(R.id.emergencyText);
+        drawerLayout = findViewById(R.id.drawerLayout);
+        navigationView = findViewById(R.id.navigationView);
+        ImageButton menuButton = findViewById(R.id.menuButton);
+
+        menuButton.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
+
+        drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
+            @Override
+            public void onDrawerSlide(View drawerView, float slideOffset) {
+                // Scale down the main content
+                View contentView = findViewById(R.id.emergencyCard).getRootView();
+                float diffScaledOffset = slideOffset * 0.6f;
+                float offsetScale = 1 - diffScaledOffset;
+                contentView.setScaleX(offsetScale);
+                contentView.setScaleY(offsetScale);
+
+                // Translate the content view
+                float xOffset = drawerView.getWidth() * slideOffset;
+                contentView.setTranslationX(xOffset);
+
+                // Add a bit of rotation
+                contentView.setRotationY(slideOffset * -10);
+            }
+        });
+
 
         // Create gradient for emergency text
         TextPaint paint = emergencyText.getPaint();
@@ -55,6 +90,33 @@ public class dashboard extends AppCompatActivity {
 
         searchInput.setOnClickListener(searchClickListener);
         searchInputLayout.setStartIconOnClickListener(searchClickListener);
+
+        navigationView.setNavigationItemSelectedListener(item -> {
+            int itemId = item.getItemId();
+
+//            if (itemId == R.id.nav_health_records) {
+//                // Handle health records
+//                startActivity(new Intent(this, HealthRecordsActivity.class));
+//            } else if (itemId == R.id.nav_insurance) {
+//                // Handle insurance
+//                startActivity(new Intent(this, InsuranceActivity.class));
+//            } else if (itemId == R.id.nav_hospitals) {
+//                // Handle hospitals
+//                startActivity(new Intent(this, HospitalsActivity.class));
+//            } else if (itemId == R.id.nav_ambulance) {
+//                // Handle ambulance
+//                startActivity(new Intent(this, AmbulanceActivity.class));
+//            } else if (itemId == R.id.nav_blood_banks) {
+//                // Handle blood banks
+//                startActivity(new Intent(this, BloodBanksActivity.class));
+//            }
+
+            drawerLayout.closeDrawer(GravityCompat.START);
+            return true;
+        });
+
+        // Optional: Customize navigation drawer
+        navigationView.setItemIconTintList(null);
 
         // Optional: Add touch feedback
         searchInput.setOnTouchListener((v, event) -> {
@@ -101,9 +163,16 @@ public class dashboard extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        super.onBackPressed();
-        // Optional: Add reverse transition animation
-        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
+        DrawerLayout drawer = findViewById(R.id.drawerLayout);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            // If drawer is open, close it
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            // If drawer is closed, proceed with normal back button behavior
+            super.onBackPressed();
+            // Optional: Add reverse transition animation
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
+        }
     }
 
     @Override

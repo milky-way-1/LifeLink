@@ -38,4 +38,31 @@
         <item name="android:textColor">@color/white</item>
         <item name="android:letterSpacing">0.05</item>
     </style>
+
+
+    <style name="CircleImageView" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="ModernNavigationView" parent="Widget.MaterialComponents.NavigationView">
+        <item name="itemTextColor">@color/white</item>
+        <item name="itemIconTint">@color/white</item>
+        <item name="itemTextAppearance">@style/NavigationTextAppearance</item>
+    </style>
+
+    <style name="NavigationTextAppearance">
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="NavigationDrawerStyle">
+        <item name="android:listDivider">@android:color/transparent</item>
+        <item name="android:background">@drawable/nav_item_background</item>
+        <item name="android:layout_marginStart">12dp</item>
+        <item name="android:layout_marginEnd">12dp</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
 </resources>
