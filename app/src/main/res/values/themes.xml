@@ -1,0 +1,47 @@
+<resources>
+    <style name="Theme.LifeLink" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/primary_purple</item>
+        <item name="colorPrimaryVariant">@color/secondary_purple</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/light_purple</item>
+        <item name="colorSecondaryVariant">@color/primary_purple</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">@color/secondary_purple</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Background colors -->
+        <item name="android:windowBackground">@color/white</item>
+
+        <!-- Text input style -->
+        <item name="textInputStyle">@style/Widget.LifeLink.TextInputLayout</item>
+
+        <!-- Button style -->
+        <item name="materialButtonStyle">@style/Widget.LifeLink.Button</item>
+    </style>
+
+    <!-- Custom TextInputLayout style -->
+    <style name="Widget.LifeLink.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/primary_purple</item>
+        <item name="hintTextColor">@color/primary_purple</item>
+        <item name="android:textColorHint">@color/text_gray</item>
+        <item name="endIconTint">@color/primary_purple</item>
+    </style>
+
+    <!-- Custom Button style -->
+    <style name="Widget.LifeLink.Button" parent="Widget.MaterialComponents.Button">
+        <item name="android:textColor">@color/white</item>
+        <item name="backgroundTint">@color/primary_purple</item>
+        <item name="android:padding">12dp</item>
+    </style>
+
+    <!-- Text Button style -->
+    <style name="Widget.LifeLink.Button.TextButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/primary_purple</item>
+        <item name="rippleColor">@color/primary_purple</item>
+    </style>
+</resources>
