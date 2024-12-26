@@ -38,6 +38,7 @@ public class dashboard extends AppCompatActivity {
     private NavigationView navigationView;
 
     private ActionBarDrawerToggle drawerToggle;
+    private View contentView;
 
 
     @Override
@@ -52,25 +53,31 @@ public class dashboard extends AppCompatActivity {
         drawerLayout = findViewById(R.id.drawerLayout);
         navigationView = findViewById(R.id.navigationView);
         ImageButton menuButton = findViewById(R.id.menuButton);
+        contentView = findViewById(R.id.mainContent);
 
         menuButton.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
 
         drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
+            private static final float END_SCALE = 0.85f;
+
             @Override
             public void onDrawerSlide(View drawerView, float slideOffset) {
-                // Scale down the main content
-                View contentView = findViewById(R.id.emergencyCard).getRootView();
-                float diffScaledOffset = slideOffset * 0.6f;
-                float offsetScale = 1 - diffScaledOffset;
+                // Scale the View based on current slide offset
+                final float diffScaledOffset = slideOffset * (1 - END_SCALE);
+                final float offsetScale = 1 - diffScaledOffset;
                 contentView.setScaleX(offsetScale);
                 contentView.setScaleY(offsetScale);
 
-                // Translate the content view
-                float xOffset = drawerView.getWidth() * slideOffset;
-                contentView.setTranslationX(xOffset);
+                // Translate the View, accounting for the scaled width
+                final float xOffset = drawerView.getWidth() * slideOffset;
+                final float xOffsetDiff = contentView.getWidth() * diffScaledOffset / 2;
+                final float xTranslation = xOffset - xOffsetDiff;
+                contentView.setTranslationX(xTranslation);
+            }
 
-                // Add a bit of rotation
-                contentView.setRotationY(slideOffset * -10);
+            @Override
+            public void onDrawerClosed(View drawerView) {
+                // Reset any custom animations here if needed
             }
         });
 
