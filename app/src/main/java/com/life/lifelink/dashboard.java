@@ -99,14 +99,18 @@ public class dashboard extends AppCompatActivity {
         searchInputLayout.setStartIconOnClickListener(searchClickListener);
 
         navigationView.setNavigationItemSelectedListener(item -> {
-            int itemId = item.getItemId();
+                    int itemId = item.getItemId();
 
-//            if (itemId == R.id.nav_health_records) {
-//                // Handle health records
-//                startActivity(new Intent(this, HealthRecordsActivity.class));
-//            } else if (itemId == R.id.nav_insurance) {
-//                // Handle insurance
-//                startActivity(new Intent(this, InsuranceActivity.class));
+                    if (itemId == R.id.nav_health_records) {
+                        Intent intent = new Intent(this, Health_record.class);
+                        startActivity(intent);
+                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    }
+                    else if (itemId == R.id.nav_insurance) {
+                        Intent intent = new Intent(this, Insurance.class);
+                        startActivity(intent);
+                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    }
 //            } else if (itemId == R.id.nav_hospitals) {
 //                // Handle hospitals
 //                startActivity(new Intent(this, HospitalsActivity.class));
