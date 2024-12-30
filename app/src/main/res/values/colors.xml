@@ -11,4 +11,13 @@
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
     <color name="purple_200">#CE93D8</color>
+    <color name="success_color">#4CAF50</color>  <!-- Material Green 500 -->
+    <color name="success_bg_color">#E8F5E9</color>  <!-- Material Green 50 -->
+
+    <color name="error_color">#F44336</color>  <!-- Material Red 500 -->
+    <color name="error_bg_color">#FFEBEE</color>  <!-- Material Red 50 -->
+
+    <!-- Optional: Additional status colors -->
+    <color name="warning_color">#FFC107</color>  <!-- Material Amber 500 -->
+    <color name="info_color">#2196F3</color>
 </resources>

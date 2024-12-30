@@ -24,6 +24,17 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.airbnb.lottie.RenderMode;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textview.MaterialTextView;
+import com.life.lifelink.api.RetrofitClient;
+import com.life.lifelink.model.JwtResponse;
+import com.life.lifelink.model.LoginRequest;
+import com.life.lifelink.util.SessionManager;
+
+import org.json.JSONObject;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -32,9 +43,15 @@ public class MainActivity extends AppCompatActivity {
     private Button loginButton;
     private Button signUpButton;
 
+    private MaterialTextView messageText;
+
     private LottieAnimationView animationView;
+
+    private SessionManager sessionManager;
+
     private ViewGroup mainLayout;
     private ViewGroup splashLayout;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,50 +66,48 @@ public class MainActivity extends AppCompatActivity {
 
         TextView titleText = findViewById(R.id.titleText);
 
+        sessionManager = new SessionManager(this);
+
+        setContentView(R.layout.splash_screen);
+        setupSplashScreen();
+
+        // Create a handler to delay next screen
+        new Handler().postDelayed(() -> {
+            // Check login status after splash screen
+            if (sessionManager.getToken() != null) {
+                navigateToDashboard();
+                finish();
+            } else {
+                // Show login screen if not logged in
+                setContentView(R.layout.activity_main);
+                initializeViews();
+                setupLoginButton();
+                setupSignUpButton();
+                setupWindowInsets();
+            }
+        }, 4000);
+    }
+
+    private void setupSplashScreen() {
+        splashLayout = findViewById(R.id.splashLayout);
+        animationView = findViewById(R.id.animationView);
+        TextView titleText = findViewById(R.id.titleText);
+
         // Create gradient shader
         Shader textShader = new LinearGradient(
                 0, 0,
                 titleText.getPaint().measureText("LifeLink"), 0,
                 new int[]{
-                        Color.parseColor("#8E2DE2"),  // Start color
-                        Color.parseColor("#4A00E0")   // End color
+                        Color.parseColor("#8E2DE2"),
+                        Color.parseColor("#4A00E0")
                 },
                 null,
                 Shader.TileMode.CLAMP
         );
 
-        // Apply the shader to the TextView's paint
         titleText.getPaint().setShader(textShader);
-
-        // Force redraw
         titleText.invalidate();
-
-        // Setup animation
         setupAnimation();
-
-        // Create a handler to delay showing the login interface
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                // Switch to main layout after delay
-                setContentView(R.layout.activity_main);
-
-                // Initialize views
-                initializeViews();
-
-                // Set up buttons
-                setupLoginButton();
-                setupSignUpButton();
-
-                // Set up window insets for the root layout
-                View rootView = findViewById(android.R.id.content);
-                ViewCompat.setOnApplyWindowInsetsListener(rootView, (v, insets) -> {
-                    Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-                    v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-                    return insets;
-                });
-            }
-        }, 4000);
     }
 
     private void setupAnimation() {
@@ -124,31 +139,22 @@ public class MainActivity extends AppCompatActivity {
             });
         }
     }
-
-
     private void initializeViews() {
         emailInput = findViewById(R.id.emailInput);
         passwordInput = findViewById(R.id.passwordInput);
         loginButton = findViewById(R.id.loginButton);
         signUpButton = findViewById(R.id.signUpButton);
+        messageText = findViewById(R.id.messageText);
     }
 
     private void setupLoginButton() {
         loginButton.setOnClickListener(v -> {
-            // Show loading state
-            loginButton.setEnabled(false);
-            loginButton.setText("Loading...");
+            String email = emailInput.getText().toString().trim();
+            String password = passwordInput.getText().toString().trim();
 
-            // Simulate loading (remove this in production)
-            new Handler().postDelayed(() -> {
-                // Navigate to Dashboard
-                Intent intent = new Intent(MainActivity.this, dashboard.class);
-                startActivity(intent);
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
-
-                // Optional: finish MainActivity
-                // finish();
-            }, 500); // Half second delay for demo
+            if (validateInput(email, password)) {
+                attemptLogin(email, password);
+            }
         });
     }
 
@@ -182,10 +188,88 @@ public class MainActivity extends AppCompatActivity {
 
         return true;
     }
-
-
-
     private void attemptLogin(String email, String password) {
-        // TODO: Implement your authentication logic here
+        showLoading(true);
+        showMessage("", false); // Clear any previous messages
+
+        LoginRequest request = new LoginRequest(email, password);
+
+        RetrofitClient.getInstance()
+                .getApiService()
+                .login(request)
+                .enqueue(new Callback<JwtResponse>() {
+                    @Override
+                    public void onResponse(Call<JwtResponse> call, Response<JwtResponse> response) {
+                        showLoading(false);
+
+                        if (response.isSuccessful() && response.body() != null) {
+                            sessionManager.saveAuthToken(response.body());
+                            showMessage("Login successful!", false);
+
+                            new Handler().postDelayed(() -> {
+                                navigateToDashboard();
+                                finish();
+                            }, 1000);
+                        } else {
+                            try {
+                                JSONObject errorBody = new JSONObject(response.errorBody().string());
+                                showMessage(errorBody.getString("message"), true);
+                            } catch (Exception e) {
+                                showMessage("Login failed. Please try again.", true);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<JwtResponse> call, Throwable t) {
+                        showLoading(false);
+                        showMessage("Network error. Please check your connection.", true);
+                    }
+                });
+    }
+
+    private void showLoading(boolean isLoading) {
+        loginButton.setEnabled(!isLoading);
+        loginButton.setText(isLoading ? "Loading..." : "Login");
+        emailInput.setEnabled(!isLoading);
+        passwordInput.setEnabled(!isLoading);
+        signUpButton.setEnabled(!isLoading);
+    }
+
+    private void showMessage(String message, boolean isError) {
+        if (messageText != null) {
+            messageText.setText(message);
+            messageText.setVisibility(message.isEmpty() ? View.GONE : View.VISIBLE);
+
+            if (isError) {
+                messageText.setTextColor(getColor(R.color.error_color));
+                messageText.setBackgroundResource(R.drawable.error_background);
+            } else {
+                messageText.setTextColor(getColor(R.color.success_color));
+                messageText.setBackgroundResource(R.drawable.success_background);
+            }
+
+            // Auto hide after 3 seconds
+            new Handler().postDelayed(() -> {
+                if (messageText != null) {
+                    messageText.setVisibility(View.GONE);
+                }
+            }, 3000);
+        }
+    }
+
+    private void navigateToDashboard() {
+        Intent intent = new Intent(MainActivity.this, dashboard.class);
+        startActivity(intent);
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+    }
+
+    private void setupWindowInsets() {
+        View rootView = findViewById(android.R.id.content);
+        ViewCompat.setOnApplyWindowInsetsListener(rootView, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
     }
 }
