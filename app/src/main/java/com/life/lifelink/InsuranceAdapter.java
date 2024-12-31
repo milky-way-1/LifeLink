@@ -67,7 +67,7 @@ public class InsuranceAdapter extends RecyclerView.Adapter<InsuranceAdapter.Insu
         void bind(InsuranceDTO insurance) {
             providerName.setText(insurance.getProviderName());
             policyNumber.setText("Policy: " + insurance.getPolicyNumber());
-            policyHolder.setText("Holder: " + insurance.getPolicyholderName());
+            policyHolder.setText("Holder: " + insurance.getPolicyHolderName());
 
             viewDetailsButton.setOnClickListener(v -> {
                 if (listener != null) {

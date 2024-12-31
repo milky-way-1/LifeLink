@@ -1,20 +1,17 @@
 package com.life.lifelink;
 
 import android.app.DatePickerDialog;
+import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -22,29 +19,58 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
+import com.life.lifelink.api.ApiService;
+import com.life.lifelink.api.RetrofitClient;
+import com.life.lifelink.model.InsuranceRequest;
+import com.life.lifelink.model.InsuranceResponse;
+import com.life.lifelink.util.SessionManager;
 
+
+import org.json.JSONObject;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnInsuranceClickListener {
+    private static final String TAG = "Insurance";
+
     private RecyclerView insuranceRecyclerView;
     private View emptyStateLayout;
     private InsuranceAdapter adapter;
     private List<InsuranceDTO> insuranceList = new ArrayList<>();
 
-    // UI Components for the form
     private AutoCompleteTextView insuranceTypeDropdown;
     private AutoCompleteTextView relationshipDropdown;
     private AutoCompleteTextView planTypeDropdown;
+    private TextInputEditText providerNameInput;
+    private TextInputEditText policyNumberInput;
+    private TextInputEditText groupNumberInput;
+    private TextInputEditText policyHolderNameInput;
     private TextInputEditText startDateInput;
     private TextInputEditText endDateInput;
+    private MaterialButton emergencyServiceSwitch;
+    private MaterialButton ambulanceServiceSwitch;
+    private ExtendedFloatingActionButton saveFab;
+
+    private SessionManager sessionManager;
+    private ApiService apiService;
+    private SimpleDateFormat dateFormat;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_insurance);
+
+        sessionManager = new SessionManager(this);
+        apiService = RetrofitClient.getInstance().getApiService();
+        dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
 
         setupToolbar();
         initializeViews();
@@ -58,20 +84,28 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
     private void setupToolbar() {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setDisplayShowTitleEnabled(false);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setDisplayShowTitleEnabled(false);
+        }
     }
 
     private void initializeViews() {
         insuranceRecyclerView = findViewById(R.id.insuranceRecyclerView);
         emptyStateLayout = findViewById(R.id.emptyStateLayout);
 
-        // Initialize form components
         insuranceTypeDropdown = findViewById(R.id.insuranceTypeDropdown);
         relationshipDropdown = findViewById(R.id.relationshipDropdown);
         planTypeDropdown = findViewById(R.id.planTypeDropdown);
+        providerNameInput = findViewById(R.id.providerNameInput);
+        policyNumberInput = findViewById(R.id.policyNumberInput);
+        groupNumberInput = findViewById(R.id.groupNumberInput);
+        policyHolderNameInput = findViewById(R.id.policyholderNameInput);
         startDateInput = findViewById(R.id.startDateInput);
         endDateInput = findViewById(R.id.endDateInput);
+        emergencyServiceSwitch = findViewById(R.id.emergencyServicesSwitch);
+        ambulanceServiceSwitch = findViewById(R.id.ambulanceServicesSwitch);
+        saveFab = findViewById(R.id.saveFab);
     }
 
     private void setupRecyclerView() {
@@ -81,19 +115,16 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
     }
 
     private void setupDropdowns() {
-        // Insurance Type Dropdown
-        String[] insuranceTypes = {"Health", "Accident", "Travel", "Life", "Dental", "Vision"};
+        String[] insuranceTypes = {"HEALTH", "ACCIDENT", "TRAVEL", "LIFE", "DENTAL", "VISION"};
         ArrayAdapter<String> insuranceTypeAdapter = new ArrayAdapter<>(
                 this, R.layout.dropdown_item, insuranceTypes);
         insuranceTypeDropdown.setAdapter(insuranceTypeAdapter);
 
-        // Relationship Dropdown
-        String[] relationships = {"Self", "Spouse", "Child", "Parent", "Other"};
+        String[] relationships = {"SELF", "SPOUSE", "CHILD", "PARENT", "OTHER"};
         ArrayAdapter<String> relationshipAdapter = new ArrayAdapter<>(
                 this, R.layout.dropdown_item, relationships);
         relationshipDropdown.setAdapter(relationshipAdapter);
 
-        // Plan Type Dropdown
         String[] planTypes = {"HMO", "PPO", "EPO", "POS", "HDHP"};
         ArrayAdapter<String> planTypeAdapter = new ArrayAdapter<>(
                 this, R.layout.dropdown_item, planTypes);
@@ -101,52 +132,111 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
     }
 
     private void setupDatePickers() {
-        DatePickerDialog.OnDateSetListener startDateListener = (view, year, month, day) -> {
-            String date = String.format(Locale.US, "%02d/%02d/%d", month + 1, day, year);
-            startDateInput.setText(date);
+        View.OnClickListener dateClickListener = v -> {
+            TextInputEditText dateInput = (TextInputEditText) v;
+            Calendar calendar = Calendar.getInstance();
+
+            new DatePickerDialog(this, (view, year, month, day) -> {
+                calendar.set(year, month, day);
+                dateInput.setText(dateFormat.format(calendar.getTime()));
+            },
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH),
+                    calendar.get(Calendar.DAY_OF_MONTH)).show();
         };
 
-        DatePickerDialog.OnDateSetListener endDateListener = (view, year, month, day) -> {
-            String date = String.format(Locale.US, "%02d/%02d/%d", month + 1, day, year);
-            endDateInput.setText(date);
-        };
-
-        startDateInput.setOnClickListener(v -> showDatePicker(startDateListener));
-        endDateInput.setOnClickListener(v -> showDatePicker(endDateListener));
-    }
-
-    private void showDatePicker(DatePickerDialog.OnDateSetListener listener) {
-        Calendar calendar = Calendar.getInstance();
-        new DatePickerDialog(this, listener,
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH)).show();
+        startDateInput.setOnClickListener(dateClickListener);
+        endDateInput.setOnClickListener(dateClickListener);
     }
 
     private void setupButtons() {
-        // Upload buttons
-        MaterialButton uploadFrontButton = findViewById(R.id.uploadFrontButton);
-        MaterialButton uploadBackButton = findViewById(R.id.uploadBackButton);
-
-        uploadFrontButton.setOnClickListener(v -> handleImageUpload(true));
-        uploadBackButton.setOnClickListener(v -> handleImageUpload(false));
-
-        // Save FAB
-        ExtendedFloatingActionButton saveFab = findViewById(R.id.saveFab);
         saveFab.setOnClickListener(v -> saveInsurance());
     }
 
-    private void handleImageUpload(boolean isFront) {
-        // TODO: Implement image upload functionality
-        Toast.makeText(this, "Image upload not implemented yet", Toast.LENGTH_SHORT).show();
+    private void loadInsuranceData() {
+        String token = sessionManager.getToken();
+        if (token == null) {
+            showSnackbar("Session expired. Please login again");
+            navigateToLogin();
+            return;
+        }
+
+        apiService.getAllInsurance("Bearer " + token)
+                .enqueue(new Callback<List<InsuranceResponse>>() {
+                    @Override
+                    public void onResponse(Call<List<InsuranceResponse>> call, Response<List<InsuranceResponse>> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            insuranceList.clear();
+                            insuranceList.addAll(mapToInsuranceDTO(response.body()));
+                            updateUIState();
+                        } else {
+                            handleError(response);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<List<InsuranceResponse>> call, Throwable t) {
+                        Log.e(TAG, "Network error", t);
+                        showSnackbar("Network error: " + t.getMessage());
+                    }
+                });
     }
 
-    private void loadInsuranceData() {
-        // TODO: Load insurance data from backend
-        // For demo, let's add some dummy data
-        insuranceList.clear();
+    private void saveInsurance() {
+        if (!validateForm()) {
+            showSnackbar("Please fill in all required fields");
+            return;
+        }
 
-        updateUIState();
+        String token = sessionManager.getToken();
+        if (token == null) {
+            showSnackbar("Session expired. Please login again");
+            navigateToLogin();
+            return;
+        }
+
+        saveFab.setEnabled(false);
+        saveFab.setText("Saving...");
+
+        InsuranceRequest request = createInsuranceRequest();
+
+        apiService.createInsurance("Bearer " + token, request)
+                .enqueue(new Callback<InsuranceResponse>() {
+                    @Override
+                    public void onResponse(Call<InsuranceResponse> call, Response<InsuranceResponse> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            showSnackbar("Insurance information saved successfully");
+                            clearForm();
+                            loadInsuranceData();
+                        } else {
+                            handleError(response);
+                        }
+                        resetSaveButton();
+                    }
+
+                    @Override
+                    public void onFailure(Call<InsuranceResponse> call, Throwable t) {
+                        Log.e(TAG, "Network error", t);
+                        showSnackbar("Network error: " + t.getMessage());
+                        resetSaveButton();
+                    }
+                });
+    }
+
+    private InsuranceRequest createInsuranceRequest() {
+        InsuranceRequest request = new InsuranceRequest();
+        request.setInsuranceProviderName(providerNameInput.getText().toString().trim());
+        request.setPolicyNumber(policyNumberInput.getText().toString().trim());
+        request.setGroupNumber(groupNumberInput.getText().toString().trim());
+        request.setInsuranceType(insuranceTypeDropdown.getText().toString().trim());
+        request.setPolicyHolderName(policyHolderNameInput.getText().toString().trim());
+        request.setRelationshipToPolicyHolder(relationshipDropdown.getText().toString().trim());
+        request.setStartDate(startDateInput.getText().toString().trim());
+        request.setEndDate(endDateInput.getText().toString().trim());
+        request.setPlanType(planTypeDropdown.getText().toString().trim());
+        request.setCoversEmergencyService(emergencyServiceSwitch.isChecked());
+        request.setCoversAmbulanceService(ambulanceServiceSwitch.isChecked());
+        return request;
     }
 
     private void updateUIState() {
@@ -160,40 +250,63 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
         }
     }
 
-    private void saveInsurance() {
-        if (!validateForm()) {
-            showSnackbar("Please fill in all required fields");
-            return;
-        }
-
-        // Show loading state
-        ExtendedFloatingActionButton saveFab = findViewById(R.id.saveFab);
-        saveFab.setEnabled(false);
-        saveFab.setText("Saving...");
-
-        // TODO: Implement actual saving logic
-        new Handler().postDelayed(() -> {
-            showSnackbar("Insurance information saved successfully");
-            saveFab.setEnabled(true);
-            saveFab.setText("Save Insurance");
-
-            // Refresh insurance list
-            loadInsuranceData();
-        }, 2000);
+    private boolean validateForm() {
+        return !providerNameInput.getText().toString().trim().isEmpty() &&
+                !policyNumberInput.getText().toString().trim().isEmpty() &&
+                !policyHolderNameInput.getText().toString().trim().isEmpty() &&
+                !insuranceTypeDropdown.getText().toString().trim().isEmpty() &&
+                !relationshipDropdown.getText().toString().trim().isEmpty() &&
+                !planTypeDropdown.getText().toString().trim().isEmpty() &&
+                !startDateInput.getText().toString().trim().isEmpty();
     }
 
-    private boolean validateForm() {
-        // Add your validation logic here
-        return true;
+    private void handleError(Response<?> response) {
+        if (response.code() == 401) {
+            sessionManager.clearSession();
+            showSnackbar("Session expired. Please login again");
+            navigateToLogin();
+        } else {
+            try {
+                JSONObject errorBody = new JSONObject(response.errorBody().string());
+                showSnackbar(errorBody.getString("message"));
+            } catch (Exception e) {
+                showSnackbar("Failed to process insurance information");
+            }
+        }
+    }
+
+    private void resetSaveButton() {
+        saveFab.setEnabled(true);
+        saveFab.setText("Save Insurance");
+    }
+
+    private void clearForm() {
+        providerNameInput.setText("");
+        policyNumberInput.setText("");
+        groupNumberInput.setText("");
+        insuranceTypeDropdown.setText("");
+        policyHolderNameInput.setText("");
+        relationshipDropdown.setText("");
+        startDateInput.setText("");
+        endDateInput.setText("");
+        planTypeDropdown.setText("");
+        emergencyServiceSwitch.setChecked(false);
+        ambulanceServiceSwitch.setChecked(false);
     }
 
     private void showSnackbar(String message) {
         Snackbar.make(findViewById(android.R.id.content), message, Snackbar.LENGTH_SHORT).show();
     }
 
+    private void navigateToLogin() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
     @Override
     public void onInsuranceClick(InsuranceDTO insurance) {
-        // TODO: Handle insurance card click (show details)
         Toast.makeText(this, "Viewing details for " + insurance.getProviderName(), Toast.LENGTH_SHORT).show();
     }
 
@@ -204,5 +317,21 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private List<InsuranceDTO> mapToInsuranceDTO(List<InsuranceResponse> responses) {
+        List<InsuranceDTO> dtos = new ArrayList<>();
+        for (InsuranceResponse response : responses) {
+            InsuranceDTO dto = new InsuranceDTO();
+            dto.setId(response.getId());
+            dto.setProviderName(response.getInsuranceProviderName());
+            dto.setPolicyNumber(response.getPolicyNumber());
+            dto.setInsuranceType(response.getInsuranceType());
+            dto.setPolicyHolderName(response.getPolicyHolderName());
+            dto.setStartDate(response.getStartDate());
+            dto.setEndDate(response.getEndDate());
+            dtos.add(dto);
+        }
+        return dtos;
     }
 }

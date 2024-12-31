@@ -273,50 +273,7 @@
                         android:layout_marginTop="8dp"
                         android:text="Covers Ambulance Services"/>
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:hint="24/7 Helpline Number">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/helplineInput"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="phone"/>
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <!-- Document Upload Section -->
-                    <TextView
-                        style="@style/SubSectionTitle"
-                        android:layout_marginTop="24dp"
-                        android:text="Upload Documents"/>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:orientation="horizontal">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/uploadFrontButton"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginEnd="8dp"
-                            android:text="Upload Front"/>
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/uploadBackButton"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginStart="8dp"
-                            android:text="Upload Back"/>
-                    </LinearLayout>
 
                 </LinearLayout>
 
