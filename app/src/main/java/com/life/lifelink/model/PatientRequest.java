@@ -1,22 +1,43 @@
 package com.life.lifelink.model;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class PatientRequest {
+    @SerializedName("fullName")
     private String fullName;
+
+    @SerializedName("age")
     private int age;
+    @SerializedName("gender")
     private Gender gender;
+    @SerializedName("emergencyContacts")
     private List<EmergencyContactDto> emergencyContacts;
+    @SerializedName("medicalHistory")
     private List<String> medicalHistory;
+    @SerializedName("pastSurgeries")
     private List<PastSurgeryDto> pastSurgeries;
+    @SerializedName("currentMedications")
     private List<MedicationDto> currentMedications;
+    @SerializedName("allergies")
     private List<String> allergies;
+    @SerializedName("bloodType")
     private BloodType bloodType;
+    @SerializedName("weight")
     private double weight;
+
+    @SerializedName("height")
     private double height;
+
+    @SerializedName("dietaryRestrictions")
     private List<String> dietaryRestrictions;
+
+    @SerializedName("organDonor")
     private boolean organDonor;
+
+    @SerializedName("culturalConsiderations")
     private List<String> culturalConsiderations;
 
     // Constructor

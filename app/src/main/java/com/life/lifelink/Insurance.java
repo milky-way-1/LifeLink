@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
 import com.life.lifelink.api.ApiService;
 import com.life.lifelink.api.RetrofitClient;
@@ -46,17 +47,18 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
     private InsuranceAdapter adapter;
     private List<InsuranceDTO> insuranceList = new ArrayList<>();
 
+    // Update field names to match XML IDs
     private AutoCompleteTextView insuranceTypeDropdown;
     private AutoCompleteTextView relationshipDropdown;
     private AutoCompleteTextView planTypeDropdown;
     private TextInputEditText providerNameInput;
     private TextInputEditText policyNumberInput;
     private TextInputEditText groupNumberInput;
-    private TextInputEditText policyHolderNameInput;
+    private TextInputEditText policyholderNameInput; // Updated to match XML
     private TextInputEditText startDateInput;
     private TextInputEditText endDateInput;
-    private MaterialButton emergencyServiceSwitch;
-    private MaterialButton ambulanceServiceSwitch;
+    private SwitchMaterial emergencyServicesSwitch; // Changed to SwitchMaterial
+    private SwitchMaterial ambulanceServicesSwitch; // Changed to SwitchMaterial
     private ExtendedFloatingActionButton saveFab;
 
     private SessionManager sessionManager;
@@ -94,17 +96,18 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
         insuranceRecyclerView = findViewById(R.id.insuranceRecyclerView);
         emptyStateLayout = findViewById(R.id.emptyStateLayout);
 
+        // Update view bindings to match XML IDs
         insuranceTypeDropdown = findViewById(R.id.insuranceTypeDropdown);
         relationshipDropdown = findViewById(R.id.relationshipDropdown);
         planTypeDropdown = findViewById(R.id.planTypeDropdown);
         providerNameInput = findViewById(R.id.providerNameInput);
         policyNumberInput = findViewById(R.id.policyNumberInput);
         groupNumberInput = findViewById(R.id.groupNumberInput);
-        policyHolderNameInput = findViewById(R.id.policyholderNameInput);
+        policyholderNameInput = findViewById(R.id.policyholderNameInput);
         startDateInput = findViewById(R.id.startDateInput);
         endDateInput = findViewById(R.id.endDateInput);
-        emergencyServiceSwitch = findViewById(R.id.emergencyServicesSwitch);
-        ambulanceServiceSwitch = findViewById(R.id.ambulanceServicesSwitch);
+        emergencyServicesSwitch = findViewById(R.id.emergencyServicesSwitch);
+        ambulanceServicesSwitch = findViewById(R.id.ambulanceServicesSwitch);
         saveFab = findViewById(R.id.saveFab);
     }
 
@@ -229,13 +232,13 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
         request.setPolicyNumber(policyNumberInput.getText().toString().trim());
         request.setGroupNumber(groupNumberInput.getText().toString().trim());
         request.setInsuranceType(insuranceTypeDropdown.getText().toString().trim());
-        request.setPolicyHolderName(policyHolderNameInput.getText().toString().trim());
+        request.setPolicyHolderName(policyholderNameInput.getText().toString().trim());
         request.setRelationshipToPolicyHolder(relationshipDropdown.getText().toString().trim());
         request.setStartDate(startDateInput.getText().toString().trim());
         request.setEndDate(endDateInput.getText().toString().trim());
         request.setPlanType(planTypeDropdown.getText().toString().trim());
-        request.setCoversEmergencyService(emergencyServiceSwitch.isChecked());
-        request.setCoversAmbulanceService(ambulanceServiceSwitch.isChecked());
+        request.setCoversEmergencyService(emergencyServicesSwitch.isChecked());
+        request.setCoversAmbulanceService(ambulanceServicesSwitch.isChecked());
         return request;
     }
 
@@ -253,7 +256,7 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
     private boolean validateForm() {
         return !providerNameInput.getText().toString().trim().isEmpty() &&
                 !policyNumberInput.getText().toString().trim().isEmpty() &&
-                !policyHolderNameInput.getText().toString().trim().isEmpty() &&
+                !policyholderNameInput.getText().toString().trim().isEmpty() &&
                 !insuranceTypeDropdown.getText().toString().trim().isEmpty() &&
                 !relationshipDropdown.getText().toString().trim().isEmpty() &&
                 !planTypeDropdown.getText().toString().trim().isEmpty() &&
@@ -285,13 +288,13 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
         policyNumberInput.setText("");
         groupNumberInput.setText("");
         insuranceTypeDropdown.setText("");
-        policyHolderNameInput.setText("");
+        policyholderNameInput.setText("");
         relationshipDropdown.setText("");
         startDateInput.setText("");
         endDateInput.setText("");
         planTypeDropdown.setText("");
-        emergencyServiceSwitch.setChecked(false);
-        ambulanceServiceSwitch.setChecked(false);
+        emergencyServicesSwitch.setChecked(false);
+        ambulanceServicesSwitch.setChecked(false);
     }
 
     private void showSnackbar(String message) {
