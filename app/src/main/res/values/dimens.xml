@@ -1,0 +1,3 @@
+<resources>
+    <dimen name="map_padding">64dp</dimen>
+</resources>

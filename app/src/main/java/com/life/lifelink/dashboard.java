@@ -24,8 +24,12 @@ import com.airbnb.lottie.LottieDrawable;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.life.lifelink.api.ApiService;
+import com.life.lifelink.api.RetrofitClient;
+import com.life.lifelink.util.SessionManager;
+import com.life.lifelink.util.WebSocketService;
 
-public class dashboard extends AppCompatActivity {
+public class dashboard extends AppCompatActivity implements WebSocketService.WebSocketCallback {
     private LottieAnimationView ambulanceAnimation;
     private Button callAmbulanceButton;
     private TextInputLayout searchInputLayout;
@@ -40,13 +44,34 @@ public class dashboard extends AppCompatActivity {
     private ActionBarDrawerToggle drawerToggle;
     private View contentView;
 
+    private WebSocketService webSocketService;
+    private String currentBookingId;
+    private ApiService apiService;
+    private SessionManager sessionManager;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
+        sessionManager = new SessionManager(this);
 
+        // Initialize API service
+        apiService = RetrofitClient.getInstance().getApiService();
+
+        // Initialize WebSocket service with user ID from SessionManager
+        String userId = sessionManager.getUserId(); // Add this getter to SessionManager
+        if (userId != null) {
+            webSocketService = new WebSocketService(userId, this);
+        } else {
+            // Handle case where user is not logged in
+            Toast.makeText(this, "Please log in again", Toast.LENGTH_LONG).show();
+            // Redirect to login
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
+            return;
+        }
         ambulanceAnimation = findViewById(R.id.ambulanceAnimation);
         callAmbulanceButton = findViewById(R.id.callAmbulanceButton);
         TextView emergencyText = findViewById(R.id.emergencyText);
@@ -193,5 +218,58 @@ public class dashboard extends AppCompatActivity {
             String address = data.getStringExtra("address");
             searchInput.setText(address);
         }
+    }
+
+    @Override
+    public void onBookingAccepted(String driverId, String bookingId) {
+        runOnUiThread(() -> {
+            showBookingStatus("Driver accepted! They're on their way.");
+            startActivity(new Intent(this, TrackAmbulanceActivity.class)
+                    .putExtra("booking_id", bookingId)
+                    .putExtra("driver_id", driverId));
+        });
+    }
+
+    @Override
+    public void onStatusUpdate(String bookingId, String status) {
+        runOnUiThread(() -> {
+            if (status.equals("CANCELLED")) {
+                currentBookingId = null;
+                showError("Booking cancelled: No drivers available");
+            }
+            showBookingStatus("Booking status: " + status);
+        });
+    }
+
+    @Override
+    public void onDriverLocation(String driverId, double lat, double lng) {
+        runOnUiThread(() -> {
+            // Update driver location on map or UI
+            updateDriverLocation(driverId, lat, lng);
+        });
+    }
+
+    @Override
+    public void onError(String message) {
+        runOnUiThread(() -> showError(message));
+    }
+
+    private void showBookingStatus(String message) {
+        // Implement UI update for booking status
+        // For example:
+        TextView statusText = findViewById(R.id.statusText); // Add this TextView to your layout
+        if (statusText != null) {
+            statusText.setText(message);
+            statusText.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void showError(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateDriverLocation(String driverId, double lat, double lng) {
+        // Implement driver location update logic
+        // This will be used when tracking the ambulance
     }
 }

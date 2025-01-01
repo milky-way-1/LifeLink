@@ -33,4 +33,7 @@ public interface ApiService {
 
     @GET("api/insurance")
     Call<List<InsuranceResponse>> getAllInsurance(@Header("Authorization") String token);
+
+    @POST("api/bookings/request")
+    Call<BookingResponse> requestAmbulance(@Body BookingRequest request);
 }
