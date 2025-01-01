@@ -1,5 +1,7 @@
 package com.life.lifelink.api;
 
+import com.life.lifelink.model.BookingRequest;
+import com.life.lifelink.model.BookingResponse;
 import com.life.lifelink.model.InsuranceRequest;
 import com.life.lifelink.model.InsuranceResponse;
 import com.life.lifelink.model.JwtResponse;
@@ -16,6 +18,7 @@ import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
 import retrofit2.http.POST;
+import retrofit2.http.Path;
 
 public interface ApiService {
     @POST("api/auth/signup")
@@ -33,7 +36,21 @@ public interface ApiService {
 
     @GET("api/insurance")
     Call<List<InsuranceResponse>> getAllInsurance(@Header("Authorization") String token);
-
     @POST("api/bookings/request")
     Call<BookingResponse> requestAmbulance(@Body BookingRequest request);
+
+    @GET("api/bookings/{bookingId}/status")
+    Call<BookingResponse> getBookingStatus(@Path("bookingId") String bookingId);
+
+    @GET("api/drivers/{driverId}/location")
+    Call<DriverLocation> getDriverLocation(
+            @Header("Authorization") String token,
+            @Path("driverId") String driverId
+    );
+
+    @GET("api/drivers/{driverId}/route")
+    Call<RouteResponse> getRoute(
+            @Header("Authorization") String token,
+            @Path("driverId") String driverId
+    );
 }

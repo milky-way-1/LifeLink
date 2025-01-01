@@ -58,6 +58,8 @@ dependencies {
     implementation("tech.gusavila92:java-android-websocket-client:1.2.2")
     implementation("io.reactivex.rxjava3:rxjava:3.1.5")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.0")
+    implementation("com.google.maps:google-maps-services:0.15.0")
+
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
