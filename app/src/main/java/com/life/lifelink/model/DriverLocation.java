@@ -7,4 +7,11 @@ public class DriverLocation {
 
     @SerializedName("longitude")
     private double longitude;
+
+    public double getLatitude() {
+        return this.latitude;
+    }
+    public double getLongitude(){
+        return this.longitude;
+    }
 }

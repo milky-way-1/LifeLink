@@ -1,22 +1,41 @@
 package com.life.lifelink;
 
+import android.app.AlertDialog;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
+import android.view.animation.LinearInterpolator;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.gms.maps.*;
-import com.google.android.gms.maps.model.*;
+
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.maps.DirectionsApi;
+import com.google.maps.GeoApiContext;
 import com.google.maps.android.PolyUtil;
 import com.google.maps.model.DirectionsResult;
 import com.google.maps.model.TravelMode;
 import com.life.lifelink.api.RetrofitClient;
 import com.life.lifelink.model.DriverLocation;
+import com.life.lifelink.model.HospitalResponse;
 import com.life.lifelink.util.SessionManager;
 
 import java.util.List;
+
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -26,13 +45,15 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
     private GoogleMap mMap;
     private String driverId;
     private Handler locationUpdateHandler;
-    private static final int UPDATE_INTERVAL = 5000;
+    private static final int UPDATE_INTERVAL = 5000; // 5 seconds
     private Marker driverMarker;
     private Polyline routePolyline;
     private SessionManager sessionManager;
-    private LatLng userLocation;
+    private LatLng pickupLocation;
+    private LatLng hospitalLocation;
     private GeoApiContext geoApiContext;
     private static final float DESTINATION_RADIUS = 100; // meters
+    private boolean isPickupComplete = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,20 +62,21 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
 
         sessionManager = new SessionManager(this);
 
-        // Get locations from intent
-        driverId = getIntent().getStringExtra("driverId");
-        userLocation = new LatLng(
-                getIntent().getDoubleExtra("userLat", 0),
-                getIntent().getDoubleExtra("userLng", 0)
-        );
+        // Get data from intent
+        driverId = getIntent().getStringExtra("driver_id");
+        double pickupLat = getIntent().getDoubleExtra("pickup_lat", 0);
+        double pickupLng = getIntent().getDoubleExtra("pickup_lng", 0);
+        double destLat = getIntent().getDoubleExtra("dest_lat", 0);
+        double destLng = getIntent().getDoubleExtra("dest_lng", 0);
 
-        // Get Maps API key from manifest
+        pickupLocation = new LatLng(pickupLat, pickupLng);
+        hospitalLocation = new LatLng(destLat, destLng);
+
+        // Initialize Google Maps API context
         try {
             ApplicationInfo ai = getPackageManager()
                     .getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
             String apiKey = ai.metaData.getString("com.google.android.geo.API_KEY");
-
-            // Initialize Google Maps Directions API context
             geoApiContext = new GeoApiContext.Builder()
                     .apiKey(apiKey)
                     .build();
@@ -62,11 +84,56 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
             e.printStackTrace();
         }
 
+        // Initialize map
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
 
         locationUpdateHandler = new Handler();
+    }
+
+    @Override
+    public void onMapReady(@NonNull GoogleMap googleMap) {
+        mMap = googleMap;
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setMyLocationButtonEnabled(true);
+
+        String hospitalName = getIntent().getStringExtra("hospital_name");
+
+        // Add markers for pickup and hospital
+        mMap.addMarker(new MarkerOptions()
+                .position(pickupLocation)
+                .title("Pickup Location")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+
+        mMap.addMarker(new MarkerOptions()
+                .position(hospitalLocation)
+                .title(hospitalName)
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
+        // Create ambulance marker
+        MarkerOptions ambulanceMarker = new MarkerOptions()
+                .title("Ambulance")
+                .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_ambulance_marker))
+                .visible(false);
+        driverMarker = mMap.addMarker(ambulanceMarker);
+
+        // Show all markers
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        builder.include(pickupLocation);
+        builder.include(hospitalLocation);
+        LatLngBounds bounds = builder.build();
+
+        // Move camera to show all markers with padding
+        int padding = 100;
+        CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+        mMap.animateCamera(cu);
+
+        // Start location updates
+        startLocationUpdates();
     }
 
     private final Runnable locationUpdateRunnable = new Runnable() {
@@ -96,13 +163,12 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
                     public void onResponse(Call<DriverLocation> call, Response<DriverLocation> response) {
                         if (response.isSuccessful() && response.body() != null) {
                             DriverLocation location = response.body();
-                            updateMapWithNewLocation(location);
-                            updateRoute(new LatLng(location.getLatitude(), location.getLongitude()));
+                            LatLng driverLatLng = new LatLng(location.getLatitude(), location.getLongitude());
+                            updateMapWithNewLocation(driverLatLng);
+                            updateRoute(driverLatLng);
 
-                            // Check if driver has reached the patient
-                            if (hasReachedDestination(location)) {
-                                findNearestHospital(new LatLng(location.getLatitude(), location.getLongitude()));
-                            }
+                            // Check if driver has reached destination
+                            checkDestinationReached(location);
                         }
                     }
 
@@ -114,46 +180,89 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
                 });
     }
 
-    private void updateMapWithNewLocation(DriverLocation location) {
-        LatLng driverLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-
+    private void updateMapWithNewLocation(LatLng newPosition) {
         if (driverMarker == null) {
             MarkerOptions markerOptions = new MarkerOptions()
-                    .position(driverLatLng)
+                    .position(newPosition)
                     .title("Ambulance")
                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_ambulance_marker));
             driverMarker = mMap.addMarker(markerOptions);
-
-            // Move camera to show both driver and user
-            LatLngBounds.Builder builder = new LatLngBounds.Builder();
-            builder.include(driverLatLng);
-            builder.include(userLocation);
-            LatLngBounds bounds = builder.build();
-            mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
         } else {
-            driverMarker.setPosition(driverLatLng);
+            animateMarker(driverMarker, newPosition);
         }
     }
 
+    private void animateMarker(final Marker marker, final LatLng toPosition) {
+        final Handler handler = new Handler();
+        final long start = SystemClock.uptimeMillis();
+        final LatLng startLatLng = marker.getPosition();
+        final long duration = 1000;
+        final LinearInterpolator interpolator = new LinearInterpolator();
+
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                long elapsed = SystemClock.uptimeMillis() - start;
+                float t = interpolator.getInterpolation((float) elapsed / duration);
+
+                double lat = t * toPosition.latitude + (1 - t) * startLatLng.latitude;
+                double lng = t * toPosition.longitude + (1 - t) * startLatLng.longitude;
+
+                marker.setPosition(new LatLng(lat, lng));
+
+                // Rotate marker to face movement direction
+                float bearing = (float) computeHeading(startLatLng, toPosition);
+                marker.setRotation(bearing);
+
+                if (t < 1.0) {
+                    handler.postDelayed(this, 16);
+                }
+            }
+        });
+    }
+
+    private double computeHeading(LatLng from, LatLng to) {
+        double fromLat = Math.toRadians(from.latitude);
+        double fromLng = Math.toRadians(from.longitude);
+        double toLat = Math.toRadians(to.latitude);
+        double toLng = Math.toRadians(to.longitude);
+        double dLng = toLng - fromLng;
+
+        double y = Math.sin(dLng) * Math.cos(toLat);
+        double x = Math.cos(fromLat) * Math.sin(toLat) -
+                Math.sin(fromLat) * Math.cos(toLat) * Math.cos(dLng);
+
+        return (Math.toDegrees(Math.atan2(y, x)) + 360) % 360;
+    }
+
     private void updateRoute(LatLng driverLocation) {
+        // Get current destination based on pickup status
+        final LatLng destination = isPickupComplete ? hospitalLocation : pickupLocation;
+
         try {
             DirectionsResult result = DirectionsApi.newRequest(geoApiContext)
-                    .origin(new com.google.maps.model.LatLng(driverLocation.latitude, driverLocation.longitude))
-                    .destination(new com.google.maps.model.LatLng(userLocation.latitude, userLocation.longitude))
+                    .origin(new com.google.maps.model.LatLng(
+                            driverLocation.latitude,
+                            driverLocation.longitude))
+                    .destination(new com.google.maps.model.LatLng(
+                            destination.latitude,
+                            destination.longitude))
                     .mode(TravelMode.DRIVING)
                     .await();
 
             if (result.routes.length > 0) {
-                List<LatLng> decodedPath = PolyUtil.decode(result.routes[0].overviewPolyline.getEncodedPath());
+                final List<LatLng> decodedPath =
+                        PolyUtil.decode(result.routes[0].overviewPolyline.getEncodedPath());
 
                 runOnUiThread(() -> {
                     if (routePolyline != null) {
                         routePolyline.remove();
                     }
-                    routePolyline = mMap.addPolyline(new PolylineOptions()
+                    PolylineOptions polylineOptions = new PolylineOptions()
                             .addAll(decodedPath)
                             .color(getResources().getColor(R.color.route_color))
-                            .width(10));
+                            .width(10);
+                    routePolyline = mMap.addPolyline(polylineOptions);
                 });
             }
         } catch (Exception e) {
@@ -161,51 +270,38 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
         }
     }
 
-    private boolean hasReachedDestination(DriverLocation driverLocation) {
+    private void checkDestinationReached(DriverLocation driverLocation) {
+        LatLng currentDestination = isPickupComplete ? hospitalLocation : pickupLocation;
         float[] results = new float[1];
         android.location.Location.distanceBetween(
                 driverLocation.getLatitude(), driverLocation.getLongitude(),
-                userLocation.latitude, userLocation.longitude,
+                currentDestination.latitude, currentDestination.longitude,
                 results
         );
-        return results[0] <= DESTINATION_RADIUS;
+
+        if (results[0] <= DESTINATION_RADIUS) {
+            if (!isPickupComplete) {
+                isPickupComplete = true;
+                showPickupCompleteDialog();
+            } else {
+                showJourneyCompleteDialog();
+            }
+        }
     }
 
-    private void findNearestHospital(LatLng currentLocation) {
-        String token = "Bearer " + sessionManager.getToken();
-
-        RetrofitClient.getInstance()
-                .getApiService()
-                .findNearestHospital(token, currentLocation.latitude, currentLocation.longitude)
-                .enqueue(new Callback<Hospital>() {
-                    @Override
-                    public void onResponse(Call<Hospital> call, Response<Hospital> response) {
-                        if (response.isSuccessful() && response.body() != null) {
-                            Hospital hospital = response.body();
-                            showHospitalFoundDialog(hospital);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<Hospital> call, Throwable t) {
-                        Toast.makeText(VehicleTrackingActivity.this,
-                                "Failed to find nearest hospital", Toast.LENGTH_SHORT).show();
-                    }
-                });
-    }
-
-    private void showHospitalFoundDialog(Hospital hospital) {
+    private void showPickupCompleteDialog() {
         new AlertDialog.Builder(this)
-                .setTitle("Nearest Hospital Found")
-                .setMessage("Found " + hospital.getName() + "\nDistance: " + hospital.getDistance() + "km")
-                .setPositiveButton("Navigate", (dialog, which) -> {
-                    // Start navigation to hospital
-                    userLocation = new LatLng(hospital.getLatitude(), hospital.getLongitude());
-                    updateRoute(new LatLng(
-                            driverMarker.getPosition().latitude,
-                            driverMarker.getPosition().longitude
-                    ));
-                })
+                .setTitle("Pickup Complete")
+                .setMessage("Patient picked up. Proceeding to hospital.")
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private void showJourneyCompleteDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Journey Complete")
+                .setMessage("Arrived at hospital")
+                .setPositiveButton("OK", (dialog, which) -> finish())
                 .setCancelable(false)
                 .show();
     }
@@ -217,10 +313,5 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
         if (geoApiContext != null) {
             geoApiContext.shutdown();
         }
-    }
-
-    @Override
-    public void onMapReady(@NonNull GoogleMap googleMap) {
-
     }
 }

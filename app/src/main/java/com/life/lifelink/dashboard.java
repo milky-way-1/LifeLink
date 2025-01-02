@@ -32,6 +32,7 @@ import com.life.lifelink.api.ApiService;
 import com.life.lifelink.api.RetrofitClient;
 import com.life.lifelink.model.BookingRequest;
 import com.life.lifelink.model.BookingResponse;
+import com.life.lifelink.model.HospitalResponse;
 import com.life.lifelink.model.Location;
 import com.life.lifelink.util.SessionManager;
 
@@ -191,53 +192,155 @@ public class dashboard extends AppCompatActivity {
             callAmbulanceButton.setText("Requesting...");
             showLoadingState();
 
-            // Create booking request
-            BookingRequest request = new BookingRequest();
-            request.setUserId(sessionManager.getUserId());
+            // First find nearest hospital
+            String token = "Bearer " + sessionManager.getToken();
+            showBookingStatus("Finding nearest hospital...");
 
-            // Set pickup location
-            Location pickupLocation = new Location(
-                    lastKnownLocation.getLatitude(),
-                    lastKnownLocation.getLongitude()
-            );
-            request.setPickupLocation(pickupLocation);
+            RetrofitClient.getInstance().getApiService()
+                    .findNearestHospital(
+                            token,
+                            lastKnownLocation.getLatitude(),
+                            lastKnownLocation.getLongitude()
+                    ).enqueue(new Callback<HospitalResponse>() {
+                        @Override
+                        public void onResponse(Call<HospitalResponse> call, Response<HospitalResponse> response) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                HospitalResponse hospital = response.body();
+                                createBookingWithHospital(hospital);
+                            } else {
+                                hideLoadingState();
+                                resetButtonState();
+                                showError("Failed to find nearest hospital");
+                            }
+                        }
 
-            // Make API call
-            apiService.requestAmbulance(request).enqueue(new Callback<BookingResponse>() {
-                @Override
-                public void onResponse(Call<BookingResponse> call, Response<BookingResponse> response) {
-                    hideLoadingState();
+                        @Override
+                        public void onFailure(Call<HospitalResponse> call, Throwable t) {
+                            hideLoadingState();
+                            resetButtonState();
+                            showError("Network error: " + t.getMessage());
+                        }
+                    });
+        });
+    }
 
-                    if (response.isSuccessful() && response.body() != null) {
-                        BookingResponse bookingResponse = response.body();
+    private void createBookingWithHospital(HospitalResponse hospital) {
+        showBookingStatus("Creating booking request...");
 
-                        if (bookingResponse.isSuccess()) {
-                            currentBookingId = bookingResponse.getBookingId();
-                            showBookingStatus("Looking for nearby drivers...");
-                            statusCard.setVisibility(View.VISIBLE);
-                            statusProgress.setVisibility(View.VISIBLE);
-                            callAmbulanceButton.setText("Booking in Progress");
+        // Create booking request
+        BookingRequest request = new BookingRequest();
+        request.setUserId(sessionManager.getUserId());
 
-                            // Start polling for status updates
-                            startStatusPolling(bookingResponse.getBookingId());
+        // Set pickup location
+        Location pickupLocation = new Location(
+                lastKnownLocation.getLatitude(),
+                lastKnownLocation.getLongitude()
+        );
+        request.setPickupLocation(pickupLocation);
+
+        // Set hospital as destination
+        Location destinationLocation = new Location(
+                hospital.getLatitude(),
+                hospital.getLongitude()
+        );
+        request.setDestinationLocation(destinationLocation);
+
+        String token = "Bearer " + sessionManager.getToken();
+
+        // Make API call
+        RetrofitClient.getInstance().getApiService()
+                .requestAmbulance(token, request)
+                .enqueue(new Callback<BookingResponse>() {
+                    @Override
+                    public void onResponse(Call<BookingResponse> call, Response<BookingResponse> response) {
+                        hideLoadingState();
+
+                        if (response.isSuccessful() && response.body() != null) {
+                            BookingResponse bookingResponse = response.body();
+
+                            if (bookingResponse.isSuccess()) {
+                                currentBookingId = bookingResponse.getBookingId();
+                                showBookingStatus("Looking for nearby drivers...");
+                                statusCard.setVisibility(View.VISIBLE);
+                                statusProgress.setVisibility(View.VISIBLE);
+                                callAmbulanceButton.setText("Booking in Progress");
+
+                                // Start polling for status updates
+                                startStatusPolling(bookingResponse.getBookingId(), hospital);
+                            } else {
+                                resetButtonState();
+                                showError(bookingResponse.getMessage());
+                            }
                         } else {
                             resetButtonState();
-                            showError(bookingResponse.getMessage());
+                            showError("Failed to request ambulance");
                         }
-                    } else {
-                        resetButtonState();
-                        showError("Failed to request ambulance");
                     }
+
+                    @Override
+                    public void onFailure(Call<BookingResponse> call, Throwable t) {
+                        hideLoadingState();
+                        resetButtonState();
+                        showError("Network error: " + t.getMessage());
+                    }
+                });
+    }
+
+    private void startStatusPolling(String bookingId, HospitalResponse hospital) {
+        Handler handler = new Handler();
+        AtomicBoolean shouldContinue = new AtomicBoolean(true);
+        AtomicReference<Runnable> statusCheckerRef = new AtomicReference<>();
+
+        Runnable statusChecker = new Runnable() {
+            @Override
+            public void run() {
+                if (!shouldContinue.get()) {
+                    return;
                 }
 
-                @Override
-                public void onFailure(Call<BookingResponse> call, Throwable t) {
-                    hideLoadingState();
-                    resetButtonState();
-                    showError("Network error: " + t.getMessage());
-                }
-            });
-        });
+                RetrofitClient.getInstance().getApiService()
+                        .getBookingStatus(bookingId)
+                        .enqueue(new Callback<BookingResponse>() {
+                            @Override
+                            public void onResponse(Call<BookingResponse> call, Response<BookingResponse> response) {
+                                if (!shouldContinue.get()) {
+                                    return;
+                                }
+
+                                if (response.isSuccessful() && response.body() != null) {
+                                    BookingResponse statusResponse = response.body();
+
+                                    if (statusResponse.isAssigned()) {
+                                        shouldContinue.set(false);
+                                        onBookingAccepted(statusResponse.getDriverId(), hospital.getHospitalId());
+                                    } else if (statusResponse.isCancelled()) {
+                                        shouldContinue.set(false);
+                                        resetButtonState();
+                                        showError("No drivers available");
+                                    } else {
+                                        // Continue polling
+                                        if (shouldContinue.get() && statusCheckerRef.get() != null) {
+                                            handler.postDelayed(statusCheckerRef.get(), 5000);
+                                        }
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onFailure(Call<BookingResponse> call, Throwable t) {
+                                if (shouldContinue.get() && statusCheckerRef.get() != null) {
+                                    handler.postDelayed(statusCheckerRef.get(), 5000);
+                                }
+                            }
+                        });
+            }
+        };
+
+        statusCheckerRef.set(statusChecker);
+        handler.post(statusChecker);
+
+        this.pollingHandler = handler;
+        this.pollingShouldContinue = shouldContinue;
     }
 
     private void startStatusPolling(String bookingId) {
@@ -318,7 +421,7 @@ public class dashboard extends AppCompatActivity {
 
             currentBookingId = bookingId;
 
-            Intent trackingIntent = new Intent(this, TrackAmbulanceActivity.class);
+            Intent trackingIntent = new Intent(this, VehicleTrackingActivity.class);
             trackingIntent.putExtra("booking_id", bookingId);
             trackingIntent.putExtra("driver_id", driverId);
 

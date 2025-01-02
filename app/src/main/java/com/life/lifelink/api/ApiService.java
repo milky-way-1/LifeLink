@@ -2,6 +2,8 @@ package com.life.lifelink.api;
 
 import com.life.lifelink.model.BookingRequest;
 import com.life.lifelink.model.BookingResponse;
+import com.life.lifelink.model.DriverLocation;
+import com.life.lifelink.model.HospitalResponse;
 import com.life.lifelink.model.InsuranceRequest;
 import com.life.lifelink.model.InsuranceResponse;
 import com.life.lifelink.model.JwtResponse;
@@ -19,6 +21,7 @@ import retrofit2.http.GET;
 import retrofit2.http.Header;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 public interface ApiService {
     @POST("api/auth/signup")
@@ -37,20 +40,21 @@ public interface ApiService {
     @GET("api/insurance")
     Call<List<InsuranceResponse>> getAllInsurance(@Header("Authorization") String token);
     @POST("api/bookings/request")
-    Call<BookingResponse> requestAmbulance(@Body BookingRequest request);
+    Call<BookingResponse> requestAmbulance(@Header("Authorization") String token, @Body BookingRequest request);
 
     @GET("api/bookings/{bookingId}/status")
     Call<BookingResponse> getBookingStatus(@Path("bookingId") String bookingId);
 
-    @GET("api/drivers/{driverId}/location")
+    @GET("api/bookings/{driverId}/location")
     Call<DriverLocation> getDriverLocation(
             @Header("Authorization") String token,
             @Path("driverId") String driverId
     );
 
-    @GET("api/drivers/{driverId}/route")
-    Call<RouteResponse> getRoute(
+    @GET("api/bookings/nearest-hospital")
+    Call<HospitalResponse> findNearestHospital(
             @Header("Authorization") String token,
-            @Path("driverId") String driverId
+            @Query("latitude") double latitude,
+            @Query("longitude") double longitude
     );
 }
