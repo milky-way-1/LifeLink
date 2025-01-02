@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actions>
+    <action intentName="actions.intent.GET_EMERGENCY_SUPPORT">
+        <fulfillment urlTemplate="lifelink://emergency">
+            <parameter-mapping>
+                <parameter name="location" key="location"/>
+            </parameter-mapping>
+        </fulfillment>
+    </action>
+
+    <action intentName="actions.intent.OPEN_APP">
+        <fulfillment urlTemplate="lifelink://open">
+            <parameter-mapping>
+                <parameter name="query" key="query"/>
+            </parameter-mapping>
+        </fulfillment>
+    </action>
+</actions>
+

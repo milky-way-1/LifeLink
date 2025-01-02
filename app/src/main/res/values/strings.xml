@@ -3,4 +3,16 @@
     <string name="title_activity_maps">MapsActivity</string>
     <string name="nav_open">Open Navigation Drawer</string>
     <string name="nav_close">Close Navigation Drawer</string>
+
+    <string-array name="assistant_emergency_phrases">
+        <item>Call an ambulance with LifeLink</item>
+        <item>I need emergency medical help using LifeLink</item>
+        <item>Medical emergency through LifeLink</item>
+    </string-array>
+
+    <string-array name="assistant_open_app_phrases">
+        <item>Open LifeLink</item>
+        <item>Launch LifeLink</item>
+        <item>Start LifeLink</item>
+    </string-array>
 </resources>

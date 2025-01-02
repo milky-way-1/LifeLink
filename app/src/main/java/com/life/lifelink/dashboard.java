@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
+import android.location.Address;
+import android.location.Geocoder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextPaint;
@@ -36,6 +38,9 @@ import com.life.lifelink.model.HospitalResponse;
 import com.life.lifelink.model.Location;
 import com.life.lifelink.util.SessionManager;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -77,6 +82,45 @@ public class dashboard extends AppCompatActivity {
         setupNavigation();
         setupAnimation();
         setupCallButton();
+
+        if (getIntent().getBooleanExtra("from_assistant", false)) {
+            handleAssistantLaunch();
+        }
+    }
+
+    private void handleAssistantLaunch() {
+        double latitude = getIntent().getDoubleExtra("latitude", 0);
+        double longitude = getIntent().getDoubleExtra("longitude", 0);
+
+        if (latitude != 0 && longitude != 0) {
+            android.location.Location location = new android.location.Location("");
+            location.setLatitude(latitude);
+            location.setLongitude(longitude);
+            lastKnownLocation = location;
+
+            getAddressFromLocation(latitude, longitude);
+
+            new Handler().postDelayed(() -> {
+                if (callAmbulanceButton != null) {
+                    callAmbulanceButton.performClick();
+                }
+            }, 1000);
+        }
+    }
+
+    private void getAddressFromLocation(double latitude, double longitude) {
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                String addressText = address.getAddressLine(0);
+                searchInput.setText(addressText);
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error getting address: " + e.getMessage());
+            searchInput.setText(String.format("%.6f, %.6f", latitude, longitude));
+        }
     }
 
     private void initializeViews() {
@@ -247,7 +291,7 @@ public class dashboard extends AppCompatActivity {
 
         String token = "Bearer " + sessionManager.getToken();
 
-        // Make API call
+        // Make API call to request ambulance
         RetrofitClient.getInstance().getApiService()
                 .requestAmbulance(token, request)
                 .enqueue(new Callback<BookingResponse>() {
@@ -257,19 +301,49 @@ public class dashboard extends AppCompatActivity {
 
                         if (response.isSuccessful() && response.body() != null) {
                             BookingResponse bookingResponse = response.body();
+                            Log.d(TAG, "Booking Response: " + bookingResponse.toString());
 
-                            if (bookingResponse.isSuccess()) {
-                                currentBookingId = bookingResponse.getBookingId();
-                                showBookingStatus("Looking for nearby drivers...");
-                                statusCard.setVisibility(View.VISIBLE);
-                                statusProgress.setVisibility(View.VISIBLE);
-                                callAmbulanceButton.setText("Booking in Progress");
+                            if ("ASSIGNED".equals(bookingResponse.getStatus())) {
+                                // Driver found and assigned immediately
+                                statusProgress.setVisibility(View.GONE);
+                                statusText.setText("Driver assigned! Starting journey tracking...");
 
-                                // Start polling for status updates
-                                startStatusPolling(bookingResponse.getBookingId(), hospital);
+                                // Add null checks and validations
+                                if (bookingResponse.getDriverId() == null) {
+                                    showError("Invalid driver assignment");
+                                    resetButtonState();
+                                    return;
+                                }
+
+                                Intent trackingIntent = new Intent(dashboard.this, VehicleTrackingActivity.class);
+                                trackingIntent.putExtra("booking_id", bookingResponse.getBookingId());
+                                trackingIntent.putExtra("driver_id", bookingResponse.getDriverId());
+
+                                // Add hospital information
+                                trackingIntent.putExtra("hospital_name", hospital.getHospitalName());
+                                trackingIntent.putExtra("dest_lat", hospital.getLatitude());
+                                trackingIntent.putExtra("dest_lng", hospital.getLongitude());
+
+                                if (lastKnownLocation != null) {
+                                    trackingIntent.putExtra("pickup_lat", lastKnownLocation.getLatitude());
+                                    trackingIntent.putExtra("pickup_lng", lastKnownLocation.getLongitude());
+                                } else {
+                                    showError("Invalid pickup location");
+                                    resetButtonState();
+                                    return;
+                                }
+
+                                try {
+                                    startActivity(trackingIntent);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error starting tracking activity", e);
+                                    showError("Failed to start tracking");
+                                    resetButtonState();
+                                }
                             } else {
                                 resetButtonState();
-                                showError(bookingResponse.getMessage());
+                                showError(bookingResponse.getMessage() != null ?
+                                        bookingResponse.getMessage() : "No drivers available");
                             }
                         } else {
                             resetButtonState();
@@ -279,6 +353,7 @@ public class dashboard extends AppCompatActivity {
 
                     @Override
                     public void onFailure(Call<BookingResponse> call, Throwable t) {
+                        Log.e(TAG, "Network Error", t);
                         hideLoadingState();
                         resetButtonState();
                         showError("Network error: " + t.getMessage());
@@ -483,7 +558,7 @@ public class dashboard extends AppCompatActivity {
             double latitude = data.getDoubleExtra("latitude", 0);
             double longitude = data.getDoubleExtra("longitude", 0);
 
-            searchInput.setText(address);
+            searchInput.setText(address + " " + latitude + " " + longitude);
 
             lastKnownLocation = new android.location.Location("");
             lastKnownLocation.setLatitude(latitude);

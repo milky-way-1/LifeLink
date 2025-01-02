@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -86,6 +87,28 @@ public class MainActivity extends AppCompatActivity {
                 setupWindowInsets();
             }
         }, 4000);
+
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent != null) {
+            String action = intent.getAction();
+            Uri data = intent.getData();
+
+            if (Intent.ACTION_VIEW.equals(action) && data != null) {
+                if ("lifelink".equals(data.getScheme()) && "open".equals(data.getHost())) {
+                    // App opened via Google Assistant
+                    Toast.makeText(this, "App opened via Google Assistant", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
     }
 
     private void setupSplashScreen() {
@@ -234,6 +257,15 @@ public class MainActivity extends AppCompatActivity {
         emailInput.setEnabled(!isLoading);
         passwordInput.setEnabled(!isLoading);
         signUpButton.setEnabled(!isLoading);
+    }
+
+    private void testAppActions() {
+        Intent testIntent = new Intent(Intent.ACTION_VIEW);
+        testIntent.setData(Uri.parse("emergency://"));
+        testIntent.putExtra("from_assistant", true);
+        testIntent.putExtra("latitude", 8.352345346);
+        testIntent.putExtra("longitude", 76.8535993989);
+        startActivity(testIntent);
     }
 
     private void showMessage(String message, boolean isError) {

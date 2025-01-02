@@ -59,6 +59,8 @@ dependencies {
     implementation("io.reactivex.rxjava3:rxjava:3.1.5")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.0")
     implementation("com.google.maps:google-maps-services:0.15.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("com.google.android.libraries.places:places:3.1.0")
 
     implementation(libs.appcompat)
     implementation(libs.material)

@@ -18,11 +18,25 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LifeLink"
         tools:targetApi="31">
+        <meta-data
+            android:name="com.google.android.actions"
+            android:resource="@xml/actions" />
+
+        <activity
+            android:name=".AssistantActivity"
+            android:exported="true">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="lifelink.example.com"
+                    android:pathPrefix="/emergency" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".VehicleTrackingActivity"
-            android:exported="false" />
-        <activity
-            android:name=".TrackAmbulanceActivity"
             android:exported="false" />
         <activity
             android:name=".Insurance"
@@ -53,6 +67,13 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Open app intent filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="lifelink" android:host="open" />
             </intent-filter>
         </activity>
     </application>
