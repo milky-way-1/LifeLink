@@ -4,6 +4,7 @@ import java.io.FileInputStream
 import java.io.InputStreamReader
 plugins {
     alias(libs.plugins.android.application)
+    id("com.google.gms.google-services")
     alias(libs.plugins.google.android.libraries.mapsplatform.secrets.gradle.plugin)
 }
 
@@ -61,6 +62,9 @@ dependencies {
     implementation("com.google.maps:google-maps-services:0.15.0")
     implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation("com.google.android.libraries.places:places:3.1.0")
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-analytics")
 
     implementation(libs.appcompat)
     implementation(libs.material)

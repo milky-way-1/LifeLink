@@ -15,6 +15,10 @@ public class Location {
         this.coordinates = Arrays.asList(longitude, latitude); // MongoDB expects [longitude, latitude]
     }
 
+    public Location(double latitude, double longitude){
+        this.coordinates = Arrays.asList(longitude, latitude);
+    }
+
     // Getters
     public List<Double> getCoordinates() {
         return coordinates;

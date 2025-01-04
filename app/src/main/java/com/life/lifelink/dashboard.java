@@ -71,7 +71,8 @@ public class dashboard extends AppCompatActivity {
     // Polling related fields
     private Handler pollingHandler;
     private AtomicBoolean pollingShouldContinue;
-
+    private double destination_lat;
+    private double destination_lon;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -304,40 +305,61 @@ public class dashboard extends AppCompatActivity {
                             Log.d(TAG, "Booking Response: " + bookingResponse.toString());
 
                             if ("ASSIGNED".equals(bookingResponse.getStatus())) {
-                                // Driver found and assigned immediately
-                                statusProgress.setVisibility(View.GONE);
-                                statusText.setText("Driver assigned! Starting journey tracking...");
-
-                                // Add null checks and validations
-                                if (bookingResponse.getDriverId() == null) {
-                                    showError("Invalid driver assignment");
-                                    resetButtonState();
-                                    return;
-                                }
-
-                                Intent trackingIntent = new Intent(dashboard.this, VehicleTrackingActivity.class);
-                                trackingIntent.putExtra("booking_id", bookingResponse.getBookingId());
-                                trackingIntent.putExtra("driver_id", bookingResponse.getDriverId());
-
-                                // Add hospital information
-                                trackingIntent.putExtra("hospital_name", hospital.getHospitalName());
-                                trackingIntent.putExtra("dest_lat", hospital.getLatitude());
-                                trackingIntent.putExtra("dest_lng", hospital.getLongitude());
-
-                                if (lastKnownLocation != null) {
-                                    trackingIntent.putExtra("pickup_lat", lastKnownLocation.getLatitude());
-                                    trackingIntent.putExtra("pickup_lng", lastKnownLocation.getLongitude());
-                                } else {
-                                    showError("Invalid pickup location");
-                                    resetButtonState();
-                                    return;
-                                }
-
                                 try {
+                                    // Validate required data
+                                    if (bookingResponse.getBookingId() == null ||
+                                            bookingResponse.getDriverId() == null) {
+                                        Toast.makeText(dashboard.this, "Error occured", Toast.LENGTH_LONG).show();
+                                        throw new IllegalArgumentException("Invalid booking response data");
+
+                                    }
+
+                                    // Create intent for tracking activity
+                                    Intent trackingIntent = new Intent(dashboard.this, VehicleTrackingActivity.class);
+
+                                    // Add booking details
+                                    trackingIntent.putExtra("booking_id", bookingResponse.getBookingId());
+                                    trackingIntent.putExtra("driver_id", bookingResponse.getDriverId());
+
+                                    // Add pickup location
+                                    if (lastKnownLocation != null) {
+                                        trackingIntent.putExtra("pickup_lat", lastKnownLocation.getLatitude());
+                                        trackingIntent.putExtra("pickup_lng", lastKnownLocation.getLongitude());
+                                    } else {
+                                        throw new IllegalStateException("Pickup location is null");
+                                    }
+
+                                    // Add destination (hospital) location
+                                    if (hospital != null) {
+                                        trackingIntent.putExtra("dest_lat", hospital.getLatitude());
+                                        trackingIntent.putExtra("dest_lng", hospital.getLongitude());
+                                        trackingIntent.putExtra("hospital_name",
+                                                hospital.getHospitalName() != null ?
+                                                        hospital.getHospitalName() : "Hospital");
+                                    } else {
+                                        Toast.makeText(dashboard.this, "exception", Toast.LENGTH_SHORT).show();
+                                        throw new IllegalStateException("Hospital data is null");
+                                    }
+
+                                    // Log the data being passed
+                                    Log.d(TAG, String.format(
+                                            "Starting tracking with: Booking: %s, Driver: %s, " +
+                                                    "Pickup: %f,%f, Dest: %f,%f",
+                                            bookingResponse.getBookingId(),
+                                            bookingResponse.getDriverId(),
+                                            lastKnownLocation.getLatitude(),
+                                            lastKnownLocation.getLongitude(),
+                                            hospital.getLatitude(),
+                                            hospital.getLongitude()
+                                    ));
+
+                                    // Start tracking activity
+                                    Toast.makeText(dashboard.this, "Starting", Toast.LENGTH_LONG).show();
                                     startActivity(trackingIntent);
+
                                 } catch (Exception e) {
-                                    Log.e(TAG, "Error starting tracking activity", e);
-                                    showError("Failed to start tracking");
+                                    Log.e(TAG, "Error starting tracking: " + e.getMessage());
+                                    showError("Failed to start tracking: " + e.getMessage());
                                     resetButtonState();
                                 }
                             } else {
@@ -347,7 +369,7 @@ public class dashboard extends AppCompatActivity {
                             }
                         } else {
                             resetButtonState();
-                            showError("Failed to request ambulance");
+                            showError("Failed to process booking");
                         }
                     }
 
@@ -359,155 +381,6 @@ public class dashboard extends AppCompatActivity {
                         showError("Network error: " + t.getMessage());
                     }
                 });
-    }
-
-    private void startStatusPolling(String bookingId, HospitalResponse hospital) {
-        Handler handler = new Handler();
-        AtomicBoolean shouldContinue = new AtomicBoolean(true);
-        AtomicReference<Runnable> statusCheckerRef = new AtomicReference<>();
-
-        Runnable statusChecker = new Runnable() {
-            @Override
-            public void run() {
-                if (!shouldContinue.get()) {
-                    return;
-                }
-
-                RetrofitClient.getInstance().getApiService()
-                        .getBookingStatus(bookingId)
-                        .enqueue(new Callback<BookingResponse>() {
-                            @Override
-                            public void onResponse(Call<BookingResponse> call, Response<BookingResponse> response) {
-                                if (!shouldContinue.get()) {
-                                    return;
-                                }
-
-                                if (response.isSuccessful() && response.body() != null) {
-                                    BookingResponse statusResponse = response.body();
-
-                                    if (statusResponse.isAssigned()) {
-                                        shouldContinue.set(false);
-                                        onBookingAccepted(statusResponse.getDriverId(), hospital.getHospitalId());
-                                    } else if (statusResponse.isCancelled()) {
-                                        shouldContinue.set(false);
-                                        resetButtonState();
-                                        showError("No drivers available");
-                                    } else {
-                                        // Continue polling
-                                        if (shouldContinue.get() && statusCheckerRef.get() != null) {
-                                            handler.postDelayed(statusCheckerRef.get(), 5000);
-                                        }
-                                    }
-                                }
-                            }
-
-                            @Override
-                            public void onFailure(Call<BookingResponse> call, Throwable t) {
-                                if (shouldContinue.get() && statusCheckerRef.get() != null) {
-                                    handler.postDelayed(statusCheckerRef.get(), 5000);
-                                }
-                            }
-                        });
-            }
-        };
-
-        statusCheckerRef.set(statusChecker);
-        handler.post(statusChecker);
-
-        this.pollingHandler = handler;
-        this.pollingShouldContinue = shouldContinue;
-    }
-
-    private void startStatusPolling(String bookingId) {
-        Handler handler = new Handler();
-        AtomicBoolean shouldContinue = new AtomicBoolean(true);
-        AtomicReference<Runnable> statusCheckerRef = new AtomicReference<>();
-
-        Runnable statusChecker = new Runnable() {
-            @Override
-            public void run() {
-                if (!shouldContinue.get()) {
-                    return;
-                }
-
-                apiService.getBookingStatus(bookingId).enqueue(new Callback<BookingResponse>() {
-                    @Override
-                    public void onResponse(Call<BookingResponse> call, Response<BookingResponse> response) {
-                        if (!shouldContinue.get()) {
-                            return;
-                        }
-
-                        if (response.isSuccessful() && response.body() != null) {
-                            BookingResponse statusResponse = response.body();
-
-                            switch (statusResponse.getStatus()) {
-                                case "ASSIGNED":
-                                    shouldContinue.set(false);
-                                    onBookingAccepted(statusResponse.getDriverId(), bookingId);
-                                    break;
-                                case "CANCELLED":
-                                    shouldContinue.set(false);
-                                    resetButtonState();
-                                    showError("No drivers available");
-                                    break;
-                                case "SEARCHING":
-                                    // Continue polling
-                                    if (shouldContinue.get() && statusCheckerRef.get() != null) {
-                                        handler.postDelayed(statusCheckerRef.get(), 5000);
-                                    }
-                                    break;
-                                default:
-                                    break;
-                            }
-                        } else {
-                            if (shouldContinue.get() && statusCheckerRef.get() != null) {
-                                handler.postDelayed(statusCheckerRef.get(), 5000);
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<BookingResponse> call, Throwable t) {
-                        if (!shouldContinue.get()) {
-                            return;
-                        }
-
-                        Log.e(TAG, "Failed to get booking status", t);
-
-                        if (shouldContinue.get() && statusCheckerRef.get() != null) {
-                            handler.postDelayed(statusCheckerRef.get(), 5000);
-                        }
-                    }
-                });
-            }
-        };
-
-        statusCheckerRef.set(statusChecker);
-        handler.post(statusChecker);
-
-        this.pollingHandler = handler;
-        this.pollingShouldContinue = shouldContinue;
-    }
-
-    private void onBookingAccepted(String driverId, String bookingId) {
-        runOnUiThread(() -> {
-            statusProgress.setVisibility(View.GONE);
-            statusText.setText("Driver assigned! Starting journey tracking...");
-
-            currentBookingId = bookingId;
-
-            Intent trackingIntent = new Intent(this, VehicleTrackingActivity.class);
-            trackingIntent.putExtra("booking_id", bookingId);
-            trackingIntent.putExtra("driver_id", driverId);
-
-            if (lastKnownLocation != null) {
-                trackingIntent.putExtra("pickup_lat", lastKnownLocation.getLatitude());
-                trackingIntent.putExtra("pickup_lng", lastKnownLocation.getLongitude());
-            }
-
-            trackingIntent.putExtra("pickup_address", searchInput.getText().toString());
-            startActivity(trackingIntent);
-        });
     }
 
     private void showError(final String message) {
@@ -525,6 +398,9 @@ public class dashboard extends AppCompatActivity {
             statusCard.setVisibility(View.GONE);
         });
     }
+
+
+
 
     private void showLoadingState() {
         statusCard.setVisibility(View.VISIBLE);
