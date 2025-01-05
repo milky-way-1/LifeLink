@@ -53,7 +53,8 @@
             android:name=".MapActivity"
             android:exported="false"
             android:label="Select Location"
-            android:parentActivityName=".dashboard" />
+            android:parentActivityName=".dashboard"
+            />
         <activity
             android:name=".dashboard"
             android:exported="false" />
@@ -69,12 +70,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Open app intent filter -->
-            <intent-filter>
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="lifelink" android:host="open" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="lifelink.page.link"
+                    android:pathPattern="/ambulance" />
             </intent-filter>
+
         </activity>
     </application>
 

@@ -310,7 +310,6 @@ public class Insurance extends AppCompatActivity implements InsuranceAdapter.OnI
 
     @Override
     public void onInsuranceClick(InsuranceDTO insurance) {
-        Toast.makeText(this, "Viewing details for " + insurance.getProviderName(), Toast.LENGTH_SHORT).show();
     }
 
     @Override

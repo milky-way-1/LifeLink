@@ -1,6 +1,8 @@
 package com.life.lifelink;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
@@ -24,6 +26,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.airbnb.lottie.RenderMode;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textview.MaterialTextView;
 import com.life.lifelink.api.RetrofitClient;
@@ -49,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
     private LottieAnimationView animationView;
 
     private SessionManager sessionManager;
+
+    private FusedLocationProviderClient fusedLocationClient;
 
     private ViewGroup mainLayout;
     private ViewGroup splashLayout;
@@ -87,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
                 setupWindowInsets();
             }
         }, 4000);
-
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         handleIntent(getIntent());
     }
 
@@ -98,17 +104,47 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleIntent(Intent intent) {
-        if (intent != null) {
-            String action = intent.getAction();
-            Uri data = intent.getData();
+        if (intent == null) return;
 
-            if (Intent.ACTION_VIEW.equals(action) && data != null) {
-                if ("lifelink".equals(data.getScheme()) && "open".equals(data.getHost())) {
-                    // App opened via Google Assistant
-                    Toast.makeText(this, "App opened via Google Assistant", Toast.LENGTH_SHORT).show();
-                }
+        String action = intent.getAction();
+        Uri data = intent.getData();
+
+        if (Intent.ACTION_VIEW.equals(action) && data != null) {
+            if (data.getPath().contains("/ambulance")) {
+                getCurrentLocationAndLaunchDashboard();
             }
         }
+    }
+
+    private void getCurrentLocationAndLaunchDashboard() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+
+            fusedLocationClient.getLastLocation()
+                    .addOnSuccessListener(this, location -> {
+                        if (location != null) {
+                            launchDashboard(location.getLatitude(), location.getLongitude());
+                        } else {
+                            // If location is null, launch without location
+                            launchDashboard(0.0, 0.0);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        // Launch without location if there's an error
+                        launchDashboard(0.0, 0.0);
+                    });
+        } else {
+            // Launch without location if permission not granted
+            launchDashboard(0.0, 0.0);
+        }
+    }
+
+    private void launchDashboard(double latitude, double longitude) {
+        Intent dashboardIntent = new Intent(this, dashboard.class);
+        dashboardIntent.putExtra("LAUNCH_AMBULANCE", true);
+        dashboardIntent.putExtra("CURRENT_LAT", latitude);
+        dashboardIntent.putExtra("CURRENT_LNG", longitude);
+        startActivity(dashboardIntent);
     }
 
     private void setupSplashScreen() {

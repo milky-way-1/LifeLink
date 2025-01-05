@@ -27,6 +27,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.airbnb.lottie.LottieDrawable;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -68,11 +69,8 @@ public class dashboard extends AppCompatActivity {
     private String currentBookingId;
     private android.location.Location lastKnownLocation;
 
-    // Polling related fields
     private Handler pollingHandler;
     private AtomicBoolean pollingShouldContinue;
-    private double destination_lat;
-    private double destination_lon;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -84,30 +82,22 @@ public class dashboard extends AppCompatActivity {
         setupAnimation();
         setupCallButton();
 
-        if (getIntent().getBooleanExtra("from_assistant", false)) {
-            handleAssistantLaunch();
+        if (getIntent().getBooleanExtra("LAUNCH_AMBULANCE", false)) {
+            double currentLat = getIntent().getDoubleExtra("CURRENT_LAT", 0.0);
+            double currentLng = getIntent().getDoubleExtra("CURRENT_LNG", 0.0);
+
+            callAmbulanceButton = findViewById(R.id.callAmbulanceButton);
+            if (callAmbulanceButton != null) {
+                saveCurrentLocation(currentLat, currentLng);
+                callAmbulanceButton.performClick();
+            }
         }
     }
-
-    private void handleAssistantLaunch() {
-        double latitude = getIntent().getDoubleExtra("latitude", 0);
-        double longitude = getIntent().getDoubleExtra("longitude", 0);
-
-        if (latitude != 0 && longitude != 0) {
-            android.location.Location location = new android.location.Location("");
-            location.setLatitude(latitude);
-            location.setLongitude(longitude);
-            lastKnownLocation = location;
-
-            getAddressFromLocation(latitude, longitude);
-
-            new Handler().postDelayed(() -> {
-                if (callAmbulanceButton != null) {
-                    callAmbulanceButton.performClick();
-                }
-            }, 1000);
-        }
+    private void saveCurrentLocation(double lat, double lng) {
+        lastKnownLocation.setLatitude(lat);
+        lastKnownLocation.setLongitude(lng);
     }
+
 
     private void getAddressFromLocation(double latitude, double longitude) {
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
@@ -154,7 +144,7 @@ public class dashboard extends AppCompatActivity {
 
         String userId = sessionManager.getUserId();
         if (userId == null) {
-            Toast.makeText(this, "Please log in again", Toast.LENGTH_LONG).show();
+
             startActivity(new Intent(this, MainActivity.class));
             finish();
         }
@@ -219,16 +209,13 @@ public class dashboard extends AppCompatActivity {
         ambulanceAnimation.playAnimation();
     }
 
-    private void setupCallButton() {
+    public void perfomClick(){
         callAmbulanceButton.setOnClickListener(v -> {
             if (currentBookingId != null) {
-                Toast.makeText(this, "You already have an active booking",
-                        Toast.LENGTH_SHORT).show();
                 return;
             }
 
             if (lastKnownLocation == null) {
-                Toast.makeText(this, "Please select a location", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -267,6 +254,10 @@ public class dashboard extends AppCompatActivity {
                         }
                     });
         });
+    }
+
+    private void setupCallButton() {
+        perfomClick();
     }
 
     private void createBookingWithHospital(HospitalResponse hospital) {
@@ -309,7 +300,6 @@ public class dashboard extends AppCompatActivity {
                                     // Validate required data
                                     if (bookingResponse.getBookingId() == null ||
                                             bookingResponse.getDriverId() == null) {
-                                        Toast.makeText(dashboard.this, "Error occured", Toast.LENGTH_LONG).show();
                                         throw new IllegalArgumentException("Invalid booking response data");
 
                                     }
@@ -337,7 +327,6 @@ public class dashboard extends AppCompatActivity {
                                                 hospital.getHospitalName() != null ?
                                                         hospital.getHospitalName() : "Hospital");
                                     } else {
-                                        Toast.makeText(dashboard.this, "exception", Toast.LENGTH_SHORT).show();
                                         throw new IllegalStateException("Hospital data is null");
                                     }
 
@@ -354,7 +343,6 @@ public class dashboard extends AppCompatActivity {
                                     ));
 
                                     // Start tracking activity
-                                    Toast.makeText(dashboard.this, "Starting", Toast.LENGTH_LONG).show();
                                     startActivity(trackingIntent);
 
                                 } catch (Exception e) {
@@ -387,7 +375,6 @@ public class dashboard extends AppCompatActivity {
         runOnUiThread(() -> {
             statusProgress.setVisibility(View.GONE);
             statusText.setText(message);
-            Toast.makeText(dashboard.this, message, Toast.LENGTH_LONG).show();
         });
     }
 

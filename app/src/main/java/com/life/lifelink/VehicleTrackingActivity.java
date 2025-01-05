@@ -170,7 +170,7 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
         Double longitude = snapshot.getDouble("longitude");
 
         if (latitude == null || longitude == null) {
-            Toast.makeText(VehicleTrackingActivity.this, "driver loc not fethced", Toast.LENGTH_SHORT).show();
+
         }
         LatLng driverLocation = new LatLng(latitude, longitude);
 
@@ -212,7 +212,7 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
 
     private void showError(String message) {
         runOnUiThread(() -> {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+
         });
     }
 
