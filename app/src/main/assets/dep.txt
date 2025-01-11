@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: LikeLink
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+      database: lifelink 
+      auto-index-creation: true
+
+server:
+  port: ${PORT:10000}  
+
+jwt:
+  secret: ${JWT_SECRET}
+  accessToken:
+    expiration: ${JWT_ACCESS_EXPIRATION:3600000}
+  refreshToken:
+    expiration: ${JWT_REFRESH_EXPIRATION:86400000}
+
+MONGODB_URI
+
+spring.data.mongodb.uri=mongodb+srv://shettysuhassc:oxytocin%40123@cluster0.x4ie8.mongodb.net/Apibuilder?retryWrites=true&w=majority&appName=Cluster0
+spring.data.mongodb.database=Apibuilder

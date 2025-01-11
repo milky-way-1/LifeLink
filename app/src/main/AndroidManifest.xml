@@ -18,6 +18,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LifeLink"
         tools:targetApi="31">
+        <activity
+            android:name=".CprInfoActivity"
+            android:exported="false" />
+
         <meta-data
             android:name="com.google.android.actions"
             android:resource="@xml/actions" />
@@ -27,12 +31,14 @@
             android:exported="true">
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
+
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+
                 <data
-                    android:scheme="https"
                     android:host="lifelink.example.com"
-                    android:pathPrefix="/emergency" />
+                    android:pathPrefix="/emergency"
+                    android:scheme="https" />
             </intent-filter>
         </activity>
         <activity
@@ -53,8 +59,7 @@
             android:name=".MapActivity"
             android:exported="false"
             android:label="Select Location"
-            android:parentActivityName=".dashboard"
-            />
+            android:parentActivityName=".dashboard" />
         <activity
             android:name=".dashboard"
             android:exported="false" />
@@ -69,17 +74,17 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
+
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="https"
-                    android:host="lifelink.page.link"
-                    android:pathPattern="/ambulance" />
-            </intent-filter>
 
+                <data
+                    android:host="lifelink.page.link"
+                    android:pathPattern="/ambulance"
+                    android:scheme="https" />
+            </intent-filter>
         </activity>
     </application>
 

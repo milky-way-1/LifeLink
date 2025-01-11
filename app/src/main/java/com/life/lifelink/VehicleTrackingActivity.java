@@ -1,8 +1,10 @@
 package com.life.lifelink;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -26,26 +28,17 @@ import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.life.lifelink.api.RetrofitClient;
-import com.life.lifelink.model.Booking;
 import com.life.lifelink.util.MapUtil;
 
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-
-import retrofit2.Call;
-import retrofit2.http.Url;
 
 
 public class VehicleTrackingActivity extends AppCompatActivity implements OnMapReadyCallback {
@@ -59,6 +52,10 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
     private boolean isMapReady = false;
     private FirebaseFirestore db;
     private ListenerRegistration locationListener;
+
+    private MaterialButton cprInfoButton;
+    private Polyline driverToPickupPath;
+    private TextView distanceText;
 
     // Location data
     private com.life.lifelink.model.Location pickupLocation;
@@ -77,7 +74,18 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
             return;
         }
 
+        distanceText = findViewById(R.id.distanceText);
+
         setupMap();
+        setupCPRButton();
+    }
+
+    private void setupCPRButton() {
+        cprInfoButton = findViewById(R.id.cprInfoButton);
+        cprInfoButton.setOnClickListener(v -> {
+            Intent intent = new Intent(VehicleTrackingActivity.this, CprInfoActivity.class);
+            startActivity(intent);
+        });
     }
 
     private void setupMap() {
@@ -170,7 +178,7 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
         Double longitude = snapshot.getDouble("longitude");
 
         if (latitude == null || longitude == null) {
-
+            return;
         }
         LatLng driverLocation = new LatLng(latitude, longitude);
 
@@ -184,6 +192,9 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
             } else {
                 driverMarker.setPosition(driverLocation);
             }
+
+            // Update distance and path
+            updateDistanceAndPath(driverLocation);
         });
     }
 
@@ -222,5 +233,140 @@ public class VehicleTrackingActivity extends AppCompatActivity implements OnMapR
         if (locationListener != null) {
             locationListener.remove();
         }
+    }
+    private void updateDistanceAndPath(LatLng driverLocation) {
+        // Get pickup location
+        LatLng pickupLatLng = new LatLng(pickupLocation.getLatitude(), pickupLocation.getLongitude());
+
+        // Calculate and show distance
+        calculateDistance(driverLocation, pickupLatLng);
+
+        // Draw path
+        getDirections(driverLocation, pickupLatLng);
+    }
+
+    private void calculateDistance(LatLng origin, LatLng destination) {
+        String url = "https://maps.googleapis.com/maps/api/distancematrix/json?" +
+                "origins=" + origin.latitude + "," + origin.longitude +
+                "&destinations=" + destination.latitude + "," + destination.longitude +
+                "&mode=driving" +
+                "&key=" + MapUtil.getApiKey(this);
+
+        new Thread(() -> {
+            try {
+                URL urlObj = new URL(url);
+                HttpURLConnection conn = (HttpURLConnection) urlObj.openConnection();
+                conn.setRequestMethod("GET");
+
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                JSONArray rows = jsonResponse.getJSONArray("rows");
+                JSONObject elements = rows.getJSONObject(0);
+                JSONArray elementsArray = elements.getJSONArray("elements");
+                JSONObject element = elementsArray.getJSONObject(0);
+                JSONObject distance = element.getJSONObject("distance");
+                JSONObject duration = element.getJSONObject("duration");
+
+                String distanceText = distance.getString("text");
+                String durationText = duration.getString("text");
+
+                runOnUiThread(() -> {
+                    this.distanceText.setText("Distance: " + distanceText + "\nETA: " + durationText);
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void getDirections(LatLng origin, LatLng destination) {
+        String url = "https://maps.googleapis.com/maps/api/directions/json?" +
+                "origin=" + origin.latitude + "," + origin.longitude +
+                "&destination=" + destination.latitude + "," + destination.longitude +
+                "&mode=driving" +
+                "&key=" + MapUtil.getApiKey(this);
+
+        new Thread(() -> {
+            try {
+                URL urlObj = new URL(url);
+                HttpURLConnection conn = (HttpURLConnection) urlObj.openConnection();
+                conn.setRequestMethod("GET");
+
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                JSONArray routes = jsonResponse.getJSONArray("routes");
+                JSONObject route = routes.getJSONObject(0);
+                JSONObject overviewPolyline = route.getJSONObject("overview_polyline");
+                String encodedPath = overviewPolyline.getString("points");
+
+                List<LatLng> decodedPath = decodePolyline(encodedPath);
+
+                runOnUiThread(() -> {
+                    if (driverToPickupPath != null) {
+                        driverToPickupPath.remove();
+                    }
+
+                    PolylineOptions polylineOptions = new PolylineOptions()
+                            .addAll(decodedPath)
+                            .color(Color.BLUE)
+                            .width(10);
+
+                    driverToPickupPath = mMap.addPolyline(polylineOptions);
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private List<LatLng> decodePolyline(String encoded) {
+        List<LatLng> poly = new ArrayList<>();
+        int index = 0, len = encoded.length();
+        int lat = 0, lng = 0;
+
+        while (index < len) {
+            int b, shift = 0, result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng((double) lat / 1E5, (double) lng / 1E5);
+            poly.add(p);
+        }
+        return poly;
     }
 }

@@ -260,112 +260,61 @@ public class dashboard extends AppCompatActivity {
         perfomClick();
     }
 
+    // In dashboard.java, modify createBookingWithHospital() method
+
     private void createBookingWithHospital(HospitalResponse hospital) {
         showBookingStatus("Creating booking request...");
 
-        // Create booking request
         BookingRequest request = new BookingRequest();
         request.setUserId(sessionManager.getUserId());
-
-        // Set pickup location
-        Location pickupLocation = new Location(
+        request.setPickupLocation(new Location(
                 lastKnownLocation.getLatitude(),
                 lastKnownLocation.getLongitude()
-        );
-        request.setPickupLocation(pickupLocation);
-
-        // Set hospital as destination
-        Location destinationLocation = new Location(
+        ));
+        request.setDestinationLocation(new Location(
                 hospital.getLatitude(),
                 hospital.getLongitude()
-        );
-        request.setDestinationLocation(destinationLocation);
+        ));
 
         String token = "Bearer " + sessionManager.getToken();
 
-        // Make API call to request ambulance
         RetrofitClient.getInstance().getApiService()
                 .requestAmbulance(token, request)
                 .enqueue(new Callback<BookingResponse>() {
                     @Override
                     public void onResponse(Call<BookingResponse> call, Response<BookingResponse> response) {
                         hideLoadingState();
+                        callAmbulanceButton.setEnabled(true);
+                        callAmbulanceButton.setText("Call Ambulance");
 
                         if (response.isSuccessful() && response.body() != null) {
                             BookingResponse bookingResponse = response.body();
-                            Log.d(TAG, "Booking Response: " + bookingResponse.toString());
 
                             if ("ASSIGNED".equals(bookingResponse.getStatus())) {
-                                try {
-                                    // Validate required data
-                                    if (bookingResponse.getBookingId() == null ||
-                                            bookingResponse.getDriverId() == null) {
-                                        throw new IllegalArgumentException("Invalid booking response data");
-
-                                    }
-
-                                    // Create intent for tracking activity
-                                    Intent trackingIntent = new Intent(dashboard.this, VehicleTrackingActivity.class);
-
-                                    // Add booking details
-                                    trackingIntent.putExtra("booking_id", bookingResponse.getBookingId());
-                                    trackingIntent.putExtra("driver_id", bookingResponse.getDriverId());
-
-                                    // Add pickup location
-                                    if (lastKnownLocation != null) {
-                                        trackingIntent.putExtra("pickup_lat", lastKnownLocation.getLatitude());
-                                        trackingIntent.putExtra("pickup_lng", lastKnownLocation.getLongitude());
-                                    } else {
-                                        throw new IllegalStateException("Pickup location is null");
-                                    }
-
-                                    // Add destination (hospital) location
-                                    if (hospital != null) {
-                                        trackingIntent.putExtra("dest_lat", hospital.getLatitude());
-                                        trackingIntent.putExtra("dest_lng", hospital.getLongitude());
-                                        trackingIntent.putExtra("hospital_name",
-                                                hospital.getHospitalName() != null ?
-                                                        hospital.getHospitalName() : "Hospital");
-                                    } else {
-                                        throw new IllegalStateException("Hospital data is null");
-                                    }
-
-                                    // Log the data being passed
-                                    Log.d(TAG, String.format(
-                                            "Starting tracking with: Booking: %s, Driver: %s, " +
-                                                    "Pickup: %f,%f, Dest: %f,%f",
-                                            bookingResponse.getBookingId(),
-                                            bookingResponse.getDriverId(),
-                                            lastKnownLocation.getLatitude(),
-                                            lastKnownLocation.getLongitude(),
-                                            hospital.getLatitude(),
-                                            hospital.getLongitude()
-                                    ));
-
-                                    // Start tracking activity
-                                    startActivity(trackingIntent);
-
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Error starting tracking: " + e.getMessage());
-                                    showError("Failed to start tracking: " + e.getMessage());
-                                    resetButtonState();
-                                }
+                                // Launch Vehicle Tracking Activity
+                                Intent trackingIntent = new Intent(dashboard.this, VehicleTrackingActivity.class);
+                                trackingIntent.putExtra("booking_id", bookingResponse.getBookingId());
+                                trackingIntent.putExtra("driver_id", bookingResponse.getDriverId());
+                                trackingIntent.putExtra("pickup_lat", lastKnownLocation.getLatitude());
+                                trackingIntent.putExtra("pickup_lng", lastKnownLocation.getLongitude());
+                                trackingIntent.putExtra("dest_lat", hospital.getLatitude());
+                                trackingIntent.putExtra("dest_lng", hospital.getLongitude());
+                                trackingIntent.putExtra("hospital_name", hospital.getHospitalName());
+                                startActivity(trackingIntent);
+                                finish(); // Close dashboard after launching tracking
                             } else {
-                                resetButtonState();
-                                showError(bookingResponse.getMessage() != null ?
-                                        bookingResponse.getMessage() : "No drivers available");
+                                showError("No drivers available");
                             }
                         } else {
-                            resetButtonState();
                             showError("Failed to process booking");
                         }
                     }
 
                     @Override
                     public void onFailure(Call<BookingResponse> call, Throwable t) {
-                        Log.e(TAG, "Network Error", t);
                         hideLoadingState();
-                        resetButtonState();
+                        callAmbulanceButton.setEnabled(true);
+                        callAmbulanceButton.setText("Call Ambulance");
                         showError("Network error: " + t.getMessage());
                     }
                 });
